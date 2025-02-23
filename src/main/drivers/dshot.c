@@ -22,44 +22,52 @@
  * Follows the extended dshot telemetry documentation found at https://github.com/bird-sanctuary/extended-dshot-telemetry
  */
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <float.h>
 #include <math.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "platform.h"
+
+#include "dshot.h"
 
 #ifdef USE_DSHOT
 
 #include "build/debug.h"
 #include "build/atomic.h"
 
+#include "common/filter.h"
 #include "common/maths.h"
 
 #include "config/feature.h"
 
-#include "drivers/motor.h"
+#include "drivers/motor_types.h"
 #include "drivers/timer.h"
 
 #include "drivers/dshot_command.h"
 #include "drivers/nvic.h"
 
-#include "flight/mixer.h"
+
+#include "pg/rpm_filter.h"
 
 #include "rx/rx.h"
-#include "dshot.h"
+
+#define ERPM_PER_LSB            100.0f
+
+FAST_DATA_ZERO_INIT uint8_t dshotMotorCount = 0;
 
 void dshotInitEndpoints(const motorConfig_t *motorConfig, float outputLimit, float *outputLow, float *outputHigh, float *disarm, float *deadbandMotor3dHigh, float *deadbandMotor3dLow)
 {
     float outputLimitOffset = DSHOT_RANGE * (1 - outputLimit);
+    const float motorIdlePercent = CONVERT_PARAMETER_TO_PERCENT(motorConfig->motorIdle * 0.01f);
     *disarm = DSHOT_CMD_MOTOR_STOP;
     if (featureIsEnabled(FEATURE_3D)) {
-        *outputLow = DSHOT_MIN_THROTTLE + getDigitalIdleOffset(motorConfig) * (DSHOT_3D_FORWARD_MIN_THROTTLE - 1 - DSHOT_MIN_THROTTLE);
+        *outputLow = DSHOT_MIN_THROTTLE + motorIdlePercent * (DSHOT_3D_FORWARD_MIN_THROTTLE - 1 - DSHOT_MIN_THROTTLE);
         *outputHigh = DSHOT_MAX_THROTTLE - outputLimitOffset / 2;
-        *deadbandMotor3dHigh = DSHOT_3D_FORWARD_MIN_THROTTLE + getDigitalIdleOffset(motorConfig) * (DSHOT_MAX_THROTTLE - DSHOT_3D_FORWARD_MIN_THROTTLE);
+        *deadbandMotor3dHigh = DSHOT_3D_FORWARD_MIN_THROTTLE + motorIdlePercent * (DSHOT_MAX_THROTTLE - DSHOT_3D_FORWARD_MIN_THROTTLE);
         *deadbandMotor3dLow = DSHOT_3D_FORWARD_MIN_THROTTLE - 1 - outputLimitOffset / 2;
     } else {
-        *outputLow = DSHOT_MIN_THROTTLE + getDigitalIdleOffset(motorConfig) * DSHOT_RANGE;
+        *outputLow = DSHOT_MIN_THROTTLE + motorIdlePercent * DSHOT_RANGE;
         *outputHigh = DSHOT_MAX_THROTTLE - outputLimitOffset;
     }
 }
@@ -134,8 +142,36 @@ FAST_CODE uint16_t prepareDshotPacket(dshotProtocolControl_t *pcb)
 
 #ifdef USE_DSHOT_TELEMETRY
 
-
 FAST_DATA_ZERO_INIT dshotTelemetryState_t dshotTelemetryState;
+
+FAST_DATA_ZERO_INIT static pt1Filter_t motorFreqLpf[MAX_SUPPORTED_MOTORS];
+FAST_DATA_ZERO_INIT static float motorFrequencyHz[MAX_SUPPORTED_MOTORS];
+FAST_DATA_ZERO_INIT static float minMotorFrequencyHz;
+FAST_DATA_ZERO_INIT static float erpmToHz;
+FAST_DATA_ZERO_INIT static float dshotRpmAverage;
+FAST_DATA_ZERO_INIT static float dshotRpm[MAX_SUPPORTED_MOTORS];
+
+void initDshotTelemetry(const timeUs_t looptimeUs)
+{
+    // if bidirectional DShot is not available
+    if (!motorConfig()->dev.useDshotTelemetry && !featureIsEnabled(FEATURE_ESC_SENSOR)) {
+        return;
+    }
+
+    // erpmToHz is used by bidir dshot and ESC telemetry
+    erpmToHz = ERPM_PER_LSB / SECONDS_PER_MINUTE / (motorConfig()->motorPoleCount / 2.0f);
+
+#ifdef USE_RPM_FILTER
+    if (motorConfig()->dev.useDshotTelemetry) {
+        // init LPFs for RPM data
+        for (unsigned i = 0; i < dshotMotorCount; i++) {
+            pt1FilterInit(&motorFreqLpf[i], pt1FilterGain(rpmFilterConfig()->rpm_filter_lpf_hz, looptimeUs * 1e-6f));
+        }
+    }
+#else
+    UNUSED(looptimeUs);
+#endif
+}
 
 static uint32_t dshot_decode_eRPM_telemetry_value(uint16_t value)
 {
@@ -157,7 +193,7 @@ static uint32_t dshot_decode_eRPM_telemetry_value(uint16_t value)
 static void dshot_decode_telemetry_value(uint8_t motorIndex, uint32_t *pDecoded, dshotTelemetryType_t *pType)
 {
     uint16_t value = dshotTelemetryState.motorState[motorIndex].rawValue;
-    const unsigned motorCount = motorDeviceCount();
+    const unsigned motorCount = dshotMotorCount;
 
     if (dshotTelemetryState.motorState[motorIndex].telemetryTypes == DSHOT_NORMAL_TELEMETRY_MASK) {   /* Check DSHOT_TELEMETRY_TYPE_eRPM mask */
         // Decode eRPM telemetry
@@ -259,41 +295,78 @@ static void dshotUpdateTelemetryData(uint8_t motorIndex, dshotTelemetryType_t ty
     }
 }
 
-uint16_t getDshotTelemetry(uint8_t index)
+FAST_CODE_NOINLINE void updateDshotTelemetry(void)
 {
-    // Process telemetry in case it haven´t been processed yet
-    if (dshotTelemetryState.rawValueState == DSHOT_RAW_VALUE_STATE_NOT_PROCESSED) {
-        const unsigned motorCount = motorDeviceCount();
-        uint32_t erpmTotal = 0;
-        uint32_t rpmSamples = 0;
-
-        // Decode all telemetry data now to discharge interrupt from this task
-        for (uint8_t k = 0; k < motorCount; k++) {
-            dshotTelemetryType_t type;
-            uint32_t value;
-
-            dshot_decode_telemetry_value(k, &value, &type);
-
-            if (value != DSHOT_TELEMETRY_INVALID) {
-                dshotUpdateTelemetryData(k, type, value);
-
-                if (type == DSHOT_TELEMETRY_TYPE_eRPM) {
-                    erpmTotal += value;
-                    rpmSamples++;
-                }
-            }
-        }
-
-        // Update average
-        if (rpmSamples > 0) {
-            dshotTelemetryState.averageErpm = (uint16_t)(erpmTotal / rpmSamples);
-        }
-
-        // Set state to processed
-        dshotTelemetryState.rawValueState = DSHOT_RAW_VALUE_STATE_PROCESSED;
+    if (!useDshotTelemetry) {
+        return;
     }
 
-    return dshotTelemetryState.motorState[index].telemetryData[DSHOT_TELEMETRY_TYPE_eRPM];
+    // Only process telemetry in case it hasn´t been processed yet
+    if (dshotTelemetryState.rawValueState != DSHOT_RAW_VALUE_STATE_NOT_PROCESSED) {
+        return;
+    }
+
+    const unsigned motorCount = dshotMotorCount;
+    uint32_t erpmTotal = 0;
+    uint32_t rpmSamples = 0;
+
+    // Decode all telemetry data now to discharge interrupt from this task
+    for (uint8_t k = 0; k < motorCount; k++) {
+        dshotTelemetryType_t type;
+        uint32_t value;
+
+        dshot_decode_telemetry_value(k, &value, &type);
+
+        if (value != DSHOT_TELEMETRY_INVALID) {
+            dshotUpdateTelemetryData(k, type, value);
+
+            if (type == DSHOT_TELEMETRY_TYPE_eRPM) {
+                dshotRpm[k] = erpmToRpm(value);
+                erpmTotal += value;
+                rpmSamples++;
+            }
+        }
+    }
+
+    // Update average
+    if (rpmSamples > 0) {
+        dshotRpmAverage = erpmToRpm(erpmTotal) / (float)rpmSamples;
+    }
+
+    // update filtered rotation speed of motors for features (e.g. "RPM filter")
+    minMotorFrequencyHz = FLT_MAX;
+    for (unsigned motor = 0; motor < dshotMotorCount; motor++) {
+        motorFrequencyHz[motor] = pt1FilterApply(&motorFreqLpf[motor], erpmToHz * getDshotErpm(motor));
+        minMotorFrequencyHz = MIN(minMotorFrequencyHz, motorFrequencyHz[motor]);
+    }
+
+    // Set state to processed
+    dshotTelemetryState.rawValueState = DSHOT_RAW_VALUE_STATE_PROCESSED;
+}
+
+uint16_t getDshotErpm(uint8_t motorIndex)
+{
+    return dshotTelemetryState.motorState[motorIndex].telemetryData[DSHOT_TELEMETRY_TYPE_eRPM];
+}
+
+float getDshotRpm(uint8_t motorIndex)
+{
+    return dshotRpm[motorIndex];
+}
+
+float getDshotRpmAverage(void)
+{
+    return dshotRpmAverage;
+}
+
+float getMotorFrequencyHz(uint8_t motorIndex)
+{
+    return motorFrequencyHz[motorIndex];
+}
+
+float getMinMotorFrequencyHz(void)
+{
+    return minMotorFrequencyHz;
 }
 
 bool isDshotMotorTelemetryActive(uint8_t motorIndex)
@@ -303,7 +376,7 @@ bool isDshotMotorTelemetryActive(uint8_t motorIndex)
 
 bool isDshotTelemetryActive(void)
 {
-    const unsigned motorCount = motorDeviceCount();
+    const unsigned motorCount = dshotMotorCount;
     if (motorCount) {
         for (unsigned i = 0; i < motorCount; i++) {
             if (!isDshotMotorTelemetryActive(i)) {
@@ -320,21 +393,15 @@ void dshotCleanTelemetryData(void)
     memset(&dshotTelemetryState, 0, sizeof(dshotTelemetryState));
 }
 
-
-uint32_t getDshotAverageRpm(void)
-{
-    return erpmToRpm(dshotTelemetryState.averageErpm);
-}
-
 #endif // USE_DSHOT_TELEMETRY
 
 #if defined(USE_ESC_SENSOR) || defined(USE_DSHOT_TELEMETRY)
 
 // Used with serial esc telem as well as dshot telem
-uint32_t erpmToRpm(uint16_t erpm)
+float erpmToRpm(uint32_t erpm)
 {
-    //  rpm = (erpm * 100) / (motorConfig()->motorPoleCount / 2)
-    return (erpm * 200) / motorConfig()->motorPoleCount;
+    // rpm = (erpm * ERPM_PER_LSB) / (motorConfig()->motorPoleCount / 2)
+    return erpm * erpmToHz * SECONDS_PER_MINUTE;
 }
 
 #endif // USE_ESC_SENSOR || USE_DSHOT_TELEMETRY

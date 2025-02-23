@@ -54,7 +54,11 @@ void pgResetFn_mixerConfig(mixerConfig_t *mixerConfig)
     mixerConfig->mixerMode = DEFAULT_MIXER;
     mixerConfig->yaw_motors_reversed = false;
     mixerConfig->crashflip_motor_percent = 0;
-    mixerConfig->crashflip_expo = 35;
+#ifdef USE_RACE_PRO
+    mixerConfig->crashflip_rate = 30;
+#else
+    mixerConfig->crashflip_rate = 0;
+#endif
     mixerConfig->mixer_type = MIXER_LEGACY;
 #ifdef USE_RPM_LIMIT
     mixerConfig->rpm_limit = false;
@@ -104,7 +108,6 @@ static const motorMixer_t mixerY4[] = {
     { 1.0f,  0.0f,  1.0f,  1.0f },          // REAR_BOTTOM CCW
     { 1.0f,  1.0f, -1.0f,  0.0f },          // FRONT_L CW
 };
-
 
 #if (MAX_SUPPORTED_MOTORS >= 6)
 static const motorMixer_t mixerHex6X[] = {
@@ -265,7 +268,7 @@ const mixer_t mixers[] = {
     { 1, true,  NULL },                // MIXER_SINGLECOPTER
     { 4, false, mixerAtail4 },         // MIXER_ATAIL4
     { 0, false, NULL },                // MIXER_CUSTOM
-    { 2, true,  NULL },                // MIXER_CUSTOM_AIRPLANE
+    { 1, true,  NULL },                // MIXER_CUSTOM_AIRPLANE
     { 3, true,  NULL },                // MIXER_CUSTOM_TRI
     { 4, false, mixerQuadX1234 },      // MIXER_QUADX_1234
     { 8, false, mixerOctoX8P },        // MIXER_OCTOX8P
@@ -273,6 +276,11 @@ const mixer_t mixers[] = {
 #endif // !USE_QUAD_MIXER_ONLY
 
 FAST_DATA_ZERO_INIT mixerRuntime_t mixerRuntime;
+
+bool hasServos(void)
+{
+    return mixers[currentMixerMode].useServo;
+}
 
 uint8_t getMotorCount(void)
 {
@@ -328,7 +336,7 @@ void initEscEndpoints(void)
 void mixerInitProfile(void)
 {
 #ifdef USE_DYN_IDLE
-    if (motorConfigMutable()->dev.useDshotTelemetry) {
+    if (useDshotTelemetry) {
         mixerRuntime.dynIdleMinRps = currentPidProfile->dyn_idle_min_rpm * 100.0f / 60.0f;
     } else {
         mixerRuntime.dynIdleMinRps = 0.0f;
@@ -337,7 +345,9 @@ void mixerInitProfile(void)
     mixerRuntime.dynIdleIGain = currentPidProfile->dyn_idle_i_gain * 0.01f * pidGetDT();
     mixerRuntime.dynIdleDGain = currentPidProfile->dyn_idle_d_gain * 0.0000003f * pidGetPidFrequency();
     mixerRuntime.dynIdleMaxIncrease = currentPidProfile->dyn_idle_max_increase * 0.001f;
-    mixerRuntime.dynIdleStartIncrease = currentPidProfile->dyn_idle_start_increase * 0.001f;
+    // before takeoff, use the static idle value as the dynamic idle limit.
+    // whoop users should first adjust static idle to ensure reliable motor start before enabling dynamic idle
+    mixerRuntime.dynIdleStartIncrease = motorConfig()->motorIdle * 0.0001f;
     mixerRuntime.minRpsDelayK = 800 * pidGetDT() / 20.0f; //approx 20ms D delay, arbitrarily suits many motors
     if (!mixerRuntime.feature3dEnabled && mixerRuntime.dynIdleMinRps) {
         mixerRuntime.motorOutputLow = DSHOT_MIN_THROTTLE; // Override value set by initEscEndpoints to allow zero motor drive
@@ -361,24 +371,32 @@ void mixerInitProfile(void)
     mixerRuntime.rpmLimiterPGain = mixerConfig()->rpm_limit_p * 15e-6f;
     mixerRuntime.rpmLimiterIGain = mixerConfig()->rpm_limit_i * 1e-3f * pidGetDT();
     mixerRuntime.rpmLimiterDGain = mixerConfig()->rpm_limit_d * 3e-7f * pidGetPidFrequency();
-    pt1FilterInit(&mixerRuntime.averageRpmFilter, pt1FilterGain(6.0f, pidGetDT()));
+    mixerRuntime.rpmLimiterI = 0.0;
+    pt1FilterInit(&mixerRuntime.rpmLimiterAverageRpmFilter, pt1FilterGain(6.0f, pidGetDT()));
+    pt1FilterInit(&mixerRuntime.rpmLimiterThrottleScaleOffsetFilter, pt1FilterGain(2.0f, pidGetDT()));
     mixerResetRpmLimiter();
 #endif
+
+    mixerRuntime.ezLandingThreshold = 2.0f * currentPidProfile->ez_landing_threshold / 100.0f;
+    mixerRuntime.ezLandingLimit = currentPidProfile->ez_landing_limit / 100.0f;
+    mixerRuntime.ezLandingSpeed = 2.0f * currentPidProfile->ez_landing_speed / 10.0f;
 }
 
 #ifdef USE_RPM_LIMIT
 void mixerResetRpmLimiter(void)
 {
-    const float maxExpectedRpm = MAX(1.0f, motorConfig()->kv * getBatteryVoltage() * 0.01f);
-    mixerRuntime.rpmLimiterThrottleScale = constrainf(mixerRuntime.rpmLimiterRpmLimit / maxExpectedRpm, 0.0f, 1.0f);
+    mixerRuntime.rpmLimiterI = 0.0;
+    mixerRuntime.rpmLimiterThrottleScale = constrainf(mixerRuntime.rpmLimiterRpmLimit / motorEstimateMaxRpm(), 0.0f, 1.0f);
+    mixerRuntime.rpmLimiterInitialThrottleScale = mixerRuntime.rpmLimiterThrottleScale;
 }
+
 #endif // USE_RPM_LIMIT
 
 #ifdef USE_LAUNCH_CONTROL
 // Create a custom mixer for launch control based on the current settings
 // but disable the front motors. We don't care about roll or yaw because they
 // are limited in the PID controller.
-void loadLaunchControlMixer(void)
+static void loadLaunchControlMixer(void)
 {
     for (int i = 0; i < MAX_SUPPORTED_MOTORS; i++) {
         mixerRuntime.launchControlMixer[i] = mixerRuntime.currentMixer[i];
@@ -467,7 +485,6 @@ void mixerInit(mixerMode_e mixerMode)
 #endif
 
 #ifdef USE_DYN_IDLE
-    mixerRuntime.idleThrottleOffset = getDigitalIdleOffset(motorConfig());
     mixerRuntime.dynIdleI = 0.0f;
     mixerRuntime.prevMinRps = 0.0f;
 #endif

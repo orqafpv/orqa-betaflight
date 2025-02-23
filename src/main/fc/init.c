@@ -54,8 +54,9 @@
 #include "drivers/camera_control_impl.h"
 #include "drivers/compass/compass.h"
 #include "drivers/dma.h"
+#include "drivers/dshot.h"
 #include "drivers/exti.h"
-#include "drivers/flash.h"
+#include "drivers/flash/flash.h"
 #include "drivers/inverter.h"
 #include "drivers/io.h"
 #include "drivers/light_led.h"
@@ -63,7 +64,6 @@
 #include "drivers/nvic.h"
 #include "drivers/persistent.h"
 #include "drivers/pin_pull_up_down.h"
-#include "drivers/pwm_output.h"
 #include "drivers/rx/rx_pwm.h"
 #include "drivers/sensor.h"
 #include "drivers/serial.h"
@@ -93,6 +93,8 @@
 #include "fc/stats.h"
 #include "fc/tasks.h"
 
+#include "flight/alt_hold.h"
+#include "flight/autopilot.h"
 #include "flight/failsafe.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
@@ -100,6 +102,7 @@
 #include "flight/pid.h"
 #include "flight/pid_init.h"
 #include "flight/position.h"
+#include "flight/pos_hold.h"
 #include "flight/servos.h"
 
 #include "io/asyncfatfs/asyncfatfs.h"
@@ -110,13 +113,13 @@
 #include "io/displayport_msp.h"
 #include "io/flashfs.h"
 #include "io/gimbal.h"
+#include "io/gimbal_control.h"
 #include "io/gps.h"
 #include "io/ledstrip.h"
 #include "io/pidaudio.h"
 #include "io/piniobox.h"
 #include "io/rcdevice_cam.h"
 #include "io/serial.h"
-#include "io/servos.h"
 #include "io/transponder_ir.h"
 #include "io/vtx.h"
 #include "io/vtx_control.h"
@@ -207,6 +210,9 @@ static void configureSPIBusses(void)
 #ifdef USE_SPI
     spiPreinit();
 
+#ifdef USE_SPI_DEVICE_0
+    spiInit(SPIDEV_0);
+#endif
 #ifdef USE_SPI_DEVICE_1
     spiInit(SPIDEV_1);
 #endif
@@ -236,7 +242,7 @@ static void configureQuadSPIBusses(void)
 #ifdef USE_QUADSPI_DEVICE_1
     quadSpiInit(QUADSPIDEV_1);
 #endif
-#endif // USE_QUAD_SPI
+#endif // USE_QUADSPI
 }
 
 static void configureOctoSPIBusses(void)
@@ -258,7 +264,7 @@ static void sdCardAndFSInit(void)
 
 void init(void)
 {
-#ifdef SERIAL_PORT_COUNT
+#if SERIAL_PORT_COUNT > 0
     printfSerialInit();
 #endif
 
@@ -271,13 +277,13 @@ void init(void)
     // initialize IO (needed for all IO operations)
     IOInitGlobal();
 
-#ifdef USE_HARDWARE_REVISION_DETECTION
-    detectHardwareRevision();
-#endif
-
 #if defined(USE_TARGET_CONFIG)
     // Call once before the config is loaded for any target specific configuration required to support loading the config
     targetConfiguration();
+#endif
+
+#if defined(USE_CONFIG_TARGET_PREINIT)
+    configTargetPreInit();
 #endif
 
     enum {
@@ -382,7 +388,6 @@ void init(void)
 
 #endif // CONFIG_IN_EXTERNAL_FLASH || CONFIG_IN_MEMORY_MAPPED_FLASH
 
-
     initEEPROM();
 
     ensureEEPROMStructureIsValid();
@@ -478,9 +483,9 @@ void init(void)
     }
 #endif
 
-#if defined(STM32F4) || defined(STM32G4)
+#if defined(STM32F4) || defined(STM32G4) || defined(APM32F4)
     // F4 has non-8MHz boards
-    // G4 for Betaflight allow 24 or 27MHz oscillator
+    // G4 for Betaflight allow 8, 16, 24, 26 or 27MHz oscillator
     systemClockSetHSEValue(systemConfig()->hseMhz * 1000000U);
 #endif
 
@@ -493,7 +498,7 @@ void init(void)
     // Note that mcoConfigure must be augmented with an additional argument to
     // indicate which device instance to configure when MCO and MCO2 are both supported
 
-#if defined(STM32F4) || defined(STM32F7)
+#if defined(STM32F4) || defined(STM32F7) || defined(APM32F4)
     // F4 and F7 support MCO on PA8 and MCO2 on PC9, but only MCO2 is supported for now
     mcoConfigure(MCODEV_2, mcoConfig(MCODEV_2));
 #elif defined(STM32G4)
@@ -516,49 +521,33 @@ void init(void)
     uartPinConfigure(serialPinConfig());
 #endif
 
-#if defined(AVOID_UART1_FOR_PWM_PPM)
-    serialInit(featureIsEnabled(FEATURE_SOFTSERIAL),
-            featureIsEnabled(FEATURE_RX_PPM) || featureIsEnabled(FEATURE_RX_PARALLEL_PWM) ? SERIAL_PORT_USART1 : SERIAL_PORT_NONE);
-#elif defined(AVOID_UART2_FOR_PWM_PPM)
-    serialInit(featureIsEnabled(FEATURE_SOFTSERIAL),
-            featureIsEnabled(FEATURE_RX_PPM) || featureIsEnabled(FEATURE_RX_PARALLEL_PWM) ? SERIAL_PORT_USART2 : SERIAL_PORT_NONE);
-#elif defined(AVOID_UART3_FOR_PWM_PPM)
-    serialInit(featureIsEnabled(FEATURE_SOFTSERIAL),
-            featureIsEnabled(FEATURE_RX_PPM) || featureIsEnabled(FEATURE_RX_PARALLEL_PWM) ? SERIAL_PORT_USART3 : SERIAL_PORT_NONE);
-#else
-    serialInit(featureIsEnabled(FEATURE_SOFTSERIAL), SERIAL_PORT_NONE);
-#endif
+    serialInit(featureIsEnabled(FEATURE_SOFTSERIAL));
 
     mixerInit(mixerConfig()->mixerMode);
 
-    uint16_t idlePulse = motorConfig()->mincommand;
-    if (featureIsEnabled(FEATURE_3D)) {
-        idlePulse = flight3DConfig()->neutral3d;
-    }
-    if (motorConfig()->dev.motorPwmProtocol == PWM_TYPE_BRUSHED) {
-        idlePulse = 0; // brushed motors
-    }
 #ifdef USE_MOTOR
     /* Motors needs to be initialized soon as posible because hardware initialization
      * may send spurious pulses to esc's causing their early initialization. Also ppm
      * receiver may share timer with motors so motors MUST be initialized here. */
-    motorDevInit(&motorConfig()->dev, idlePulse, getMotorCount());
+    motorDevInit(getMotorCount());
+    // TODO: add check here that motors actually initialised correctly
     systemState |= SYSTEM_STATE_MOTORS_READY;
-#else
-    UNUSED(idlePulse);
 #endif
 
-    if (0) {}
+    do {
 #if defined(USE_RX_PPM)
-    else if (featureIsEnabled(FEATURE_RX_PPM)) {
-        ppmRxInit(ppmConfig());
-    }
+        if (featureIsEnabled(FEATURE_RX_PPM)) {
+            ppmRxInit(ppmConfig());
+            break;
+        }
 #endif
 #if defined(USE_RX_PWM)
-    else if (featureIsEnabled(FEATURE_RX_PARALLEL_PWM)) {
-        pwmRxInit(pwmConfig());
-    }
+        if (featureIsEnabled(FEATURE_RX_PARALLEL_PWM)) {
+            pwmRxInit(pwmConfig());
+            break;
+        }
 #endif
+    } while (false);
 
 #ifdef USE_BEEPER
     beeperInit(beeperDevConfig());
@@ -567,7 +556,6 @@ void init(void)
 #if defined(USE_INVERTER) && !defined(SIMULATOR_BUILD)
     initInverters(serialPinConfig());
 #endif
-
 
 #ifdef TARGET_BUS_INIT
     targetBusInit();
@@ -694,6 +682,11 @@ void init(void)
     // Now reset the targetLooptime as it's possible for the validation to change the pid_process_denom
     gyroSetTargetLooptime(pidConfig()->pid_process_denom);
 
+#if defined(USE_DSHOT_TELEMETRY) || defined(USE_ESC_SENSOR)
+    // Initialize the motor frequency filter now that we have a target looptime
+    initDshotTelemetry(gyro.targetLooptime);
+#endif
+
     // Finally initialize the gyro filtering
     gyroInitFilters();
 
@@ -756,9 +749,6 @@ void init(void)
 #ifdef USE_GPS
     if (featureIsEnabled(FEATURE_GPS)) {
         gpsInit();
-#ifdef USE_GPS_RESCUE
-        gpsRescueInit();
-#endif
 #ifdef USE_GPS_LAP_TIMER
         gpsLapTimerInit();
 #endif // USE_GPS_LAP_TIMER
@@ -822,7 +812,9 @@ void init(void)
 #ifdef USE_BARO
     baroStartCalibration();
 #endif
+
     positionInit();
+    autopilotInit();
 
 #if defined(USE_VTX_COMMON) || defined(USE_VTX_CONTROL)
     vtxTableInit();
@@ -855,6 +847,10 @@ void init(void)
 
 #endif // VTX_CONTROL
 
+#ifdef USE_GIMBAL
+    gimbalInit();
+#endif
+
     batteryInit(); // always needs doing, regardless of features.
 
 #ifdef USE_RCDEVICE
@@ -886,7 +882,13 @@ void init(void)
     //The OSD need to be initialised after GYRO to avoid GYRO initialisation failure on some targets
 
     if (featureIsEnabled(FEATURE_OSD)) {
-        osdDisplayPortDevice_e device = osdConfig()->displayPortDevice;
+        osdDisplayPortDevice_e device;
+
+        if (vcdProfile()->video_system == VIDEO_SYSTEM_HD) {
+            device = OSD_DISPLAYPORT_DEVICE_MSP;
+        } else {
+            device = osdConfig()->displayPortDevice;
+        }
 
         switch(device) {
 
@@ -986,6 +988,21 @@ void init(void)
 #if defined(USE_SPI) && defined(USE_SPI_DMA_ENABLE_LATE) && !defined(USE_SPI_DMA_ENABLE_EARLY)
     // Attempt to enable DMA on all SPI busses
     spiInitBusDMA();
+#endif
+
+// autopilot must be initialised before modes that require the autopilot pids
+#ifdef USE_ALTITUDE_HOLD
+    altHoldInit();
+#endif
+
+#ifdef USE_POSITION_HOLD
+    posHoldInit();
+#endif
+
+#ifdef USE_GPS_RESCUE
+    if (featureIsEnabled(FEATURE_GPS)) {
+        gpsRescueInit();
+    }
 #endif
 
     debugInit();

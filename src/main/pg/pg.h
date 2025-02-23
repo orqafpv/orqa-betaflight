@@ -67,7 +67,7 @@ static inline uint16_t pgElementSize(const pgRegistry_t* reg) {return (reg->size
 #ifdef __APPLE__
 extern const pgRegistry_t __pg_registry_start[] __asm("section$start$__DATA$__pg_registry");
 extern const pgRegistry_t __pg_registry_end[] __asm("section$end$__DATA$__pg_registry");
-#define PG_REGISTER_ATTRIBUTES __attribute__ ((section("__DATA,__pg_registry"), used, aligned(4)))
+#define PG_REGISTER_ATTRIBUTES __attribute__ ((section("__DATA,__pg_registry"), used, aligned(8)))
 
 extern const uint8_t __pg_resetdata_start[] __asm("section$start$__DATA$__pg_resetdata");
 extern const uint8_t __pg_resetdata_end[] __asm("section$end$__DATA$__pg_resetdata");
@@ -127,10 +127,10 @@ extern const uint8_t __pg_resetdata_end[];
         .length = 1,                                                    \
         .size = sizeof(_type) | PGR_SIZE_SYSTEM_FLAG,                   \
         .address = (uint8_t*)&_name ## _System,                         \
-        .fnv_hash = &_name ## _fnv_hash,                                \
         .copy = (uint8_t*)&_name ## _Copy,                              \
         .ptr = 0,                                                       \
         _reset,                                                         \
+        .fnv_hash = &_name ## _fnv_hash,                                \
     }                                                                   \
     /**/
 
@@ -139,7 +139,7 @@ extern const uint8_t __pg_resetdata_end[];
     /**/
 
 #define PG_REGISTER_WITH_RESET_FN(_type, _name, _pgn, _version)         \
-    extern void pgResetFn_ ## _name(_type *);                           \
+    static void pgResetFn_ ## _name(_type *);                           \
     PG_REGISTER_I(_type, _name, _pgn, _version, .reset = {.fn = (pgResetFunc*)&pgResetFn_ ## _name }) \
     /**/
 
@@ -159,10 +159,10 @@ extern const uint8_t __pg_resetdata_end[];
         .length = _length,                                              \
         .size = (sizeof(_type) * _length) | PGR_SIZE_SYSTEM_FLAG,       \
         .address = (uint8_t*)&_name ## _SystemArray,                    \
-        .fnv_hash = &_name ## _fnv_hash,                                \
         .copy = (uint8_t*)&_name ## _CopyArray,                         \
         .ptr = 0,                                                       \
         _reset,                                                         \
+        .fnv_hash = &_name ## _fnv_hash,                                \
     }                                                                   \
     /**/
 

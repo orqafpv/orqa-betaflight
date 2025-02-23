@@ -18,6 +18,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -140,7 +141,7 @@ typedef struct
 #define STRU_TELE_QOS_EMPTY_FIELDS_COUNT 14
 #define STRU_TELE_QOS_EMPTY_FIELDS_VALUE 0xff
 
-bool srxlFrameQos(sbuf_t *dst, timeUs_t currentTimeUs)
+static bool srxlFrameQos(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
 
@@ -153,7 +154,6 @@ bool srxlFrameQos(sbuf_t *dst, timeUs_t currentTimeUs)
     return true;
 }
 
-
 /*
 typedef struct
 {
@@ -165,11 +165,13 @@ typedef struct
     INT8 dBm_A, // Average signal for A antenna in dBm
     INT8 dBm_B; // Average signal for B antenna in dBm.
     // If only 1 antenna, set B = A
+    UINT16 spare[2];
+    UINT16 fastbootUptime; // bit 15 = fastboot flag.  Bits 0-14= uptime in seconds.  0x0000 --> no data
 } STRU_TELE_RPM;
 */
 
 #define STRU_TELE_RPM_EMPTY_FIELDS_COUNT 8
-#define STRU_TELE_RPM_EMPTY_FIELDS_VALUE 0xff
+#define STRU_TELE_RPM_EMPTY_FIELDS_VALUE 0x00
 
 #define SPEKTRUM_RPM_UNUSED 0xffff
 #define SPEKTRUM_TEMP_UNUSED 0x7fff
@@ -179,7 +181,7 @@ typedef struct
 #define SPEKTRUM_MIN_RPM 999      // Min RPM to show the user, indicating RPM is really below 999
 #define SPEKTRUM_MAX_RPM 60000000
 
-uint16_t getMotorAveragePeriod(void)
+static uint16_t getMotorAveragePeriod(void)
 {
 
 #if defined( USE_ESC_SENSOR_TELEMETRY) || defined( USE_DSHOT_TELEMETRY)
@@ -196,7 +198,7 @@ uint16_t getMotorAveragePeriod(void)
 #if defined(USE_DSHOT_TELEMETRY)
     // Calculate this way when no rpm from esc data
     if (useDshotTelemetry && rpm == 0) {
-        rpm = getDshotAverageRpm();
+        rpm = lrintf(getDshotRpmAverage());
     }
 #endif
 
@@ -212,7 +214,7 @@ uint16_t getMotorAveragePeriod(void)
 #endif
 }
 
-bool srxlFrameRpm(sbuf_t *dst, timeUs_t currentTimeUs)
+static bool srxlFrameRpm(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     int16_t coreTemp = SPEKTRUM_TEMP_UNUSED;
 #if defined(USE_ADC_INTERNAL)
@@ -274,7 +276,7 @@ typedef struct
     UINT32   latitude;      // BCD, format 4.4, Degrees * 100 + minutes, less than 100 degrees
     UINT32   longitude;     // BCD, format 4.4 , Degrees * 100 + minutes, flag indicates > 99 degrees
     UINT16   course;        // BCD, 3.1
-    UINT8    HDOP;          // BCD, format 1.1
+    UINT8    PDOP;          // BCD, format 1.1
     UINT8    GPSflags;      // see definitions below
 } STRU_TELE_GPS_LOC;
 */
@@ -288,13 +290,13 @@ typedef struct
 #define GPS_FLAGS_3D_FIX_BIT                0x20
 #define GPS_FLAGS_NEGATIVE_ALT_BIT          0x80
 
-bool srxlFrameGpsLoc(sbuf_t *dst, timeUs_t currentTimeUs)
+static bool srxlFrameGpsLoc(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
     gpsCoordinateDDDMMmmmm_t coordinate;
     uint32_t latitudeBcd, longitudeBcd, altitudeLo;
-    uint16_t altitudeLoBcd, groundCourseBcd, hdop;
-    uint8_t hdopBcd, gpsFlags;
+    uint16_t altitudeLoBcd, groundCourseBcd, pdop;
+    uint8_t pdopBcd, gpsFlags;
 
     if (!featureIsEnabled(FEATURE_GPS) || !STATE(GPS_FIX) || gpsSol.numSat < GPS_MIN_SAT_COUNT) {
         return false;
@@ -315,10 +317,10 @@ bool srxlFrameGpsLoc(sbuf_t *dst, timeUs_t currentTimeUs)
     // Ground course
     groundCourseBcd = dec2bcd(gpsSol.groundCourse);
 
-    // HDOP
-    hdop = gpsSol.dop.hdop / 10;
-    hdop = (hdop > 99) ? 99 : hdop;
-    hdopBcd = dec2bcd(hdop);
+    // PDOP
+    pdop = gpsSol.dop.pdop / 10;
+    pdop = (pdop > 99) ? 99 : pdop;
+    pdopBcd = dec2bcd(pdop);
 
     // flags
     gpsFlags = GPS_FLAGS_GPS_DATA_RECEIVED_BIT | GPS_FLAGS_GPS_FIX_VALID_BIT | GPS_FLAGS_3D_FIX_BIT;
@@ -334,7 +336,7 @@ bool srxlFrameGpsLoc(sbuf_t *dst, timeUs_t currentTimeUs)
     sbufWriteU32(dst, latitudeBcd);
     sbufWriteU32(dst, longitudeBcd);
     sbufWriteU16(dst, groundCourseBcd);
-    sbufWriteU8(dst, hdopBcd);
+    sbufWriteU8(dst, pdopBcd);
     sbufWriteU8(dst, gpsFlags);
 
     return true;
@@ -356,7 +358,7 @@ typedef struct
 #define STRU_TELE_GPS_STAT_EMPTY_FIELDS_COUNT 6
 #define SPEKTRUM_TIME_UNKNOWN 0xFFFFFFFF
 
-bool srxlFrameGpsStat(sbuf_t *dst, timeUs_t currentTimeUs)
+static bool srxlFrameGpsStat(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
     uint32_t timeBcd;
@@ -429,7 +431,7 @@ typedef struct
 
 #define FP_MAH_KEEPALIVE_TIME_OUT 2000000 // 2s
 
-bool srxlFrameFlightPackCurrent(sbuf_t *dst, timeUs_t currentTimeUs)
+static bool srxlFrameFlightPackCurrent(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     uint16_t amps = getAmperage() / 10;
     uint16_t mah  = getMAhDrawn();
@@ -503,7 +505,7 @@ int spektrumTmTextGenPutChar(uint8_t col, uint8_t row, char c)
 }
 //**************************************************************************
 
-bool srxlFrameText(sbuf_t *dst, timeUs_t currentTimeUs)
+static bool srxlFrameText(sbuf_t *dst, timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
     static uint8_t lineNo = 0;
@@ -622,15 +624,15 @@ static void convertVtxTmData(spektrumVtx_t * vtx)
 /*
 typedef struct
 {
-    UINT8		identifier;
-    UINT8		sID;	  // Secondary ID
-    UINT8		band;	  // VTX Band (0 = Fatshark, 1 = Raceband, 2 = E, 3 = B, 4 = A, 5-7 = Reserved)
-    UINT8		channel;  // VTX Channel (0-7)
-    UINT8		pit;	  // Pit/Race mode (0 = Race, 1 = Pit). Race = (normal operating) mode. Pit = (reduced power) mode. When PIT is set, it overrides all other power settings
-    UINT8		power;	  // VTX Power (0 = Off, 1 = 1mw to 14mW, 2 = 15mW to 25mW, 3 = 26mW to 99mW, 4 = 100mW to 299mW, 5 = 300mW to 600mW, 6 = 601mW+, 7 = manual control)
-    UINT16		powerDec; // VTX Power as a decimal 1mw/unit
-    UINT8		region;	  // Region (0 = USA, 1 = EU, 0xFF = N/A)
-    UINT8		rfu[7];	  // reserved
+    UINT8       identifier;
+    UINT8       sID;      // Secondary ID
+    UINT8       band;     // VTX Band (0 = Fatshark, 1 = Raceband, 2 = E, 3 = B, 4 = A, 5-7 = Reserved)
+    UINT8       channel;  // VTX Channel (0-7)
+    UINT8       pit;      // Pit/Race mode (0 = Race, 1 = Pit). Race = (normal operating) mode. Pit = (reduced power) mode. When PIT is set, it overrides all other power settings
+    UINT8       power;    // VTX Power (0 = Off, 1 = 1mw to 14mW, 2 = 15mW to 25mW, 3 = 26mW to 99mW, 4 = 100mW to 299mW, 5 = 300mW to 600mW, 6 = 601mW+, 7 = manual control)
+    UINT16      powerDec; // VTX Power as a decimal 1mw/unit
+    UINT8       region;   // Region (0 = USA, 1 = EU, 0xFF = N/A)
+    UINT8       rfu[7];   // reserved
 } STRU_TELE_VTX;
 */
 
@@ -672,7 +674,6 @@ static bool srxlFrameVTX(sbuf_t *dst, timeUs_t currentTimeUs)
     return false;
 }
 #endif // USE_SPEKTRUM_VTX_TELEMETRY && USE_SPEKTRUM_VTX_CONTROL && USE_VTX_COMMON
-
 
 // Schedule array to decide how often each type of frame is sent
 // The frames are scheduled in sets of 3 frames, 2 mandatory and 1 user frame.
@@ -725,7 +726,6 @@ const srxlScheduleFnPtr srxlScheduleFuncs[SRXL_TOTAL_COUNT] = {
     srxlFrameText,
 #endif
 };
-
 
 static void processSrxl(timeUs_t currentTimeUs)
 {

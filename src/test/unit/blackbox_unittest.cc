@@ -346,9 +346,9 @@ const uint32_t baudRates[] = {0, 9600, 19200, 38400, 57600, 115200, 230400, 2500
         400000, 460800, 500000, 921600, 1000000, 1500000, 2000000, 2470000}; // see baudRate_e
 uint8_t debugMode = 0;
 int16_t debug[DEBUG16_VALUE_COUNT];
-int32_t blackboxHeaderBudget;
+extern int32_t blackboxHeaderBudget;
 gpsSolutionData_t gpsSol;
-int32_t GPS_home[2];
+gpsLocation_t GPS_home_llh;
 
 gyro_t gyro;
 
@@ -362,6 +362,7 @@ boxBitmask_t rcModeActivationMask;
 void mspSerialAllocatePorts(void) {}
 uint32_t getArmingBeepTimeMicros(void) {return 0;}
 uint16_t getBatteryVoltageLatest(void) {return 0;}
+bool hasServos(void) { return false; }
 uint8_t getMotorCount(void) {return 4;}
 bool areMotorsRunning(void) { return false; }
 bool IS_RC_MODE_ACTIVE(boxId_e) {return false;}
@@ -380,7 +381,7 @@ void closeSerialPort(serialPort_t *) {}
 portSharing_e determinePortSharing(const serialPortConfig_t *, serialPortFunction_e ) {return PORTSHARING_UNUSED;}
 failsafePhase_e failsafePhase(void) {return FAILSAFE_IDLE;}
 bool rxAreFlightChannelsValid(void) {return false;}
-bool rxIsReceivingSignal(void) {return false;}
+bool isRxReceivingSignal(void) {return false;}
 bool isRssiConfigured(void) {return false;}
 float getMotorOutputLow(void) {return 0.0;}
 float getMotorOutputHigh(void) {return 0.0;}

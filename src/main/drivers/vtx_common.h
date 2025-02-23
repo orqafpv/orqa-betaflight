@@ -28,6 +28,7 @@
 #include "common/time.h"
 #include "common/streambuf.h"
 
+#define VTX_SETTINGS_MIN_FREQUENCY_MHZ 5000          //min freq (in MHz) for 'vtx_freq' setting
 #define VTX_SETTINGS_MAX_FREQUENCY_MHZ 5999          //max freq (in MHz) for 'vtx_freq' setting
 
 #if defined(USE_VTX_RTC6705)
@@ -93,7 +94,6 @@ struct vtxVTable_s;
 typedef struct vtxDevice_s {
     const struct vtxVTable_s *const vTable;
 } vtxDevice_t;
-
 
 // {set,get}BandAndChannel: band and channel are 1 origin
 // {set,get}PowerByIndex: 0 = Power OFF, 1 = device dependent

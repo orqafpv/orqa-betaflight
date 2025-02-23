@@ -71,7 +71,7 @@ extern "C" {
     PG_REGISTER(imuConfig_t, imuConfig, PG_IMU_CONFIG, 0);
     PG_REGISTER(gpsRescueConfig_t, gpsRescueConfig, PG_GPS_CONFIG, 0);
 
-    float rcCommand[4];
+    extern float rcCommand[4];
     float rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];
     uint16_t averageSystemLoadPercent = 0;
     uint8_t cliMode = 0;
@@ -130,7 +130,7 @@ extern "C" {
     uint8_t activePidLoopDenom = 1;
     uint32_t micros(void) { return simulationTime; }
     uint32_t millis(void) { return micros() / 1000; }
-    bool rxIsReceivingSignal(void) { return simulationHaveRx; }
+    bool isRxReceivingSignal(void) { return simulationHaveRx; }
 
     bool featureIsEnabled(uint32_t f) { return simulationFeatureFlags & f; }
     void warningLedFlash(void) {}
@@ -202,7 +202,7 @@ extern "C" {
     bool isUpright(void) { return true; }
     void blackboxLogEvent(FlightLogEvent, union flightLogEventData_u *) {};
     void gyroFiltering(timeUs_t) {};
-    timeDelta_t rxGetFrameDelta(timeDelta_t *) { return 0; }
+    timeDelta_t rxGetFrameDelta() { return 0; }
     void updateRcRefreshRate(timeUs_t) {};
     uint16_t getAverageSystemLoadPercent(void) { return 0; }
     bool isMotorProtocolEnabled(void) { return false; }
@@ -211,4 +211,6 @@ extern "C" {
     void sbufWriteU16(sbuf_t *, uint16_t) {}
     void sbufWriteU32(sbuf_t *, uint32_t) {}
     void schedulerSetNextStateTime(timeDelta_t) {}
+    bool crashFlipSuccessful(void) {return false; }
+    bool canUseGPSHeading;
 }

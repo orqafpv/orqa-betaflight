@@ -32,6 +32,7 @@ extern "C" {
     #include "common/streambuf.h"
     #include "common/time.h"
     #include "common/utils.h"
+    #include "common/vector.h"
 
     #include "config/config.h"
 
@@ -60,6 +61,7 @@ extern "C" {
 
     #include "pg/pg.h"
     #include "pg/pg_ids.h"
+    #include "pg/pilot.h"
     #include "pg/rx.h"
 
     #include "rx/rx.h"
@@ -67,10 +69,10 @@ extern "C" {
     #include "sensors/battery.h"
 
     attitudeEulerAngles_t attitude;
-    float rMat[3][3];
+    matrix33_t rMat;
 
     pidProfile_t *currentPidProfile;
-    float rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];
+    extern float rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];
     uint8_t GPS_numSat;
     uint16_t GPS_distanceToHome;
     int16_t GPS_directionToHome;
@@ -104,7 +106,7 @@ extern "C" {
 extern "C" {
     PG_REGISTER(flight3DConfig_t, flight3DConfig, PG_MOTOR_3D_CONFIG, 0);
 
-    boxBitmask_t rcModeActivationMask;
+    extern boxBitmask_t rcModeActivationMask;
     int16_t debug[DEBUG16_VALUE_COUNT];
     uint8_t debugMode = 0;
 
@@ -426,7 +428,7 @@ TEST(LQTest, TestLQAlarm)
     // elements showing values in alarm range should flash
     simulationTime += 1000000;
     simulationTime -= simulationTime % 1000000;
-    startTime = simulationTime;
+    startTime = simulationTime + 0.25e6;
     for (int i = 0; i < 15; i++) {
         // Blinking should happen at 2Hz
         simulationTime = startTime + i*0.25e6;
@@ -438,6 +440,7 @@ TEST(LQTest, TestLQAlarm)
 #ifdef DEBUG_OSD
         displayPortTestPrint();
 #endif
+
         if (i % 2 == 0) {
             displayPortTestBufferSubstring(8,  1, "%c5", SYM_LINK_QUALITY);
         } else {
@@ -482,6 +485,7 @@ extern "C" {
     int32_t getMAhDrawn() { return 0; }
     float getWhDrawn() { return 0.0; }
     int32_t getEstimatedAltitudeCm() { return 0; }
+    int32_t getAltitudeAsl() { return 0; }
     int32_t getEstimatedVario() { return 0; }
     int32_t blackboxGetLogNumber() { return 0; }
     bool isBlackboxDeviceWorking() { return true; }
@@ -491,7 +495,7 @@ extern "C" {
     bool telemetryCheckRxPortShared(const serialPortConfig_t *) {return false;}
     bool cmsDisplayPortRegister(displayPort_t *) { return false; }
     uint16_t getCoreTemperatureCelsius(void) { return 0; }
-    bool isFlipOverAfterCrashActive(void) { return false; }
+    bool isCrashFlipModeActive(void) { return false; }
     float pidItermAccelerator(void) { return 1.0; }
     uint8_t getMotorCount(void){ return 4; }
     bool areMotorsRunning(void){ return true; }

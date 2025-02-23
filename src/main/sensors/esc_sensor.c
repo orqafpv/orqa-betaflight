@@ -18,6 +18,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -41,7 +42,6 @@
 #include "drivers/timer.h"
 #include "drivers/motor.h"
 #include "drivers/dshot.h"
-#include "drivers/dshot_dpwm.h"
 #include "drivers/serial.h"
 #include "drivers/serial_uart.h"
 
@@ -147,7 +147,7 @@ static bool isFrameComplete(void)
     return bufferPosition == bufferSize;
 }
 
-bool isEscSensorActive(void)
+LOCAL_UNUSED_FUNCTION static bool isEscSensorActive(void)
 {
     return escSensorPort != NULL;
 }
@@ -271,7 +271,7 @@ static uint8_t decodeEscFrame(void)
         frameStatus = ESC_SENSOR_FRAME_COMPLETE;
 
         if (escSensorMotor < 4) {
-            DEBUG_SET(DEBUG_ESC_SENSOR_RPM, escSensorMotor, erpmToRpm(escSensorData[escSensorMotor].rpm) / 10); // output actual rpm/10 to fit in 16bit signed.
+            DEBUG_SET(DEBUG_ESC_SENSOR_RPM, escSensorMotor, lrintf(erpmToRpm(escSensorData[escSensorMotor].rpm) / 10.0f)); // output actual rpm/10 to fit in 16bit signed.
             DEBUG_SET(DEBUG_ESC_SENSOR_TMP, escSensorMotor, escSensorData[escSensorMotor].temperature);
         }
     } else {
@@ -320,8 +320,7 @@ void escSensorProcess(timeUs_t currentTimeUs)
             escTriggerTimestamp = currentTimeMs;
 
             startEscDataRead(telemetryBuffer, TELEMETRY_FRAME_SIZE);
-            motorDmaOutput_t * const motor = getMotorDmaOutput(escSensorMotor);
-            motor->protocolControl.requestTelemetry = true;
+            motorRequestTelemetry(escSensorMotor);
             escSensorTriggerState = ESC_SENSOR_TRIGGER_PENDING;
 
             DEBUG_SET(DEBUG_ESC_SENSOR, DEBUG_ESC_MOTOR_INDEX, escSensorMotor + 1);

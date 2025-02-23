@@ -44,7 +44,7 @@
 
 //#define DEBUG_MAG_DATA_READY_INTERRUPT
 
-#define IST8310_MAG_I2C_ADDRESS 0x0C
+#define IST8310_MAG_I2C_ADDRESS 0x0E
 
 /* ist8310 Slave Address Select : default address 0x0C
  *        CAD1  |  CAD0   |  Address
@@ -124,9 +124,11 @@ static bool ist8310Init(magDev_t *magDev)
     bool ack = busWriteRegister(dev, IST8310_REG_AVERAGE, IST8310_AVG_16);
     delay(6);
     ack = ack && busWriteRegister(dev, IST8310_REG_PDCNTL, IST8310_PULSE_DURATION_NORMAL);
-    delay(6); 
+    delay(6);
     ack = ack && busWriteRegister(dev, IST8310_REG_CNTRL1, IST8310_ODR_SINGLE);
 
+    magDev->magOdrHz = 100;
+    // need to check what ODR is actually returned, may be a bit faster than 100Hz
     return ack;
 }
 
@@ -145,9 +147,9 @@ static bool ist8310Read(magDev_t * magDev, int16_t *magData)
     switch (state) {
         default:
         case STATE_REQUEST_DATA:
-            busReadRegisterBufferStart(dev, IST8310_REG_DATA, buf, sizeof(buf));
-
-            state = STATE_FETCH_DATA;
+            if (busReadRegisterBufferStart(dev, IST8310_REG_DATA, buf, sizeof(buf))) {
+                state = STATE_FETCH_DATA;
+            }
 
             return false;
         case STATE_FETCH_DATA:
@@ -157,11 +159,13 @@ static bool ist8310Read(magDev_t * magDev, int16_t *magData)
             magData[Z] =  (int16_t)(buf[5] << 8 | buf[4]) * LSB2FSV;
 
             // Force single measurement mode for next read
-            busWriteRegisterStart(dev, IST8310_REG_CNTRL1, IST8310_ODR_SINGLE);
+            if (busWriteRegisterStart(dev, IST8310_REG_CNTRL1, IST8310_ODR_SINGLE)) {
+                state = STATE_REQUEST_DATA;
 
-            state = STATE_REQUEST_DATA;
+                return true;
+            }
 
-            return true;
+            return false;
     }
 
     // TODO: do cross axis compensation

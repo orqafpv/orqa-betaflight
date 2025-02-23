@@ -28,6 +28,7 @@
 
 #include "drivers/bus.h"
 #include "drivers/bus_i2c.h"
+#include "drivers/bus_i2c_busdev.h"
 
 static uint8_t i2cRegisteredDeviceCount = 0;
 
@@ -40,6 +41,10 @@ bool i2cBusWriteRegisterStart(const extDevice_t *dev, uint8_t reg, uint8_t data)
 {
     // Need a static value, not on the stack
     static uint8_t byte;
+
+    if (i2cBusy(dev->bus->busType_u.i2c.device, NULL)) {
+        return false;
+    }
 
     byte = data;
 

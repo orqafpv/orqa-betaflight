@@ -96,7 +96,7 @@ static void ghstFinalize(sbuf_t *dst)
 }
 
 // Battery (Pack) status
-void ghstFramePackTelemetry(sbuf_t *dst)
+static void ghstFramePackTelemetry(sbuf_t *dst)
 {
     // use sbufWrite since CRC does not include frame length
     sbufWriteU8(dst, GHST_FRAME_PACK_PAYLOAD_SIZE + GHST_FRAME_LENGTH_CRC + GHST_FRAME_LENGTH_TYPE);
@@ -119,7 +119,7 @@ void ghstFramePackTelemetry(sbuf_t *dst)
 }
 
 // GPS data, primary, positional data
-void ghstFrameGpsPrimaryTelemetry(sbuf_t *dst)
+MAYBE_UNUSED static void ghstFrameGpsPrimaryTelemetry(sbuf_t *dst)
 {
     // use sbufWrite since CRC does not include frame length
     sbufWriteU8(dst, GHST_FRAME_GPS_PAYLOAD_SIZE + GHST_FRAME_LENGTH_CRC + GHST_FRAME_LENGTH_TYPE);
@@ -138,7 +138,7 @@ void ghstFrameGpsPrimaryTelemetry(sbuf_t *dst)
 }
 
 // GPS data, secondary, auxiliary data
-void ghstFrameGpsSecondaryTelemetry(sbuf_t *dst)
+MAYBE_UNUSED static void ghstFrameGpsSecondaryTelemetry(sbuf_t *dst)
 {
     // use sbufWrite since CRC does not include frame length
     sbufWriteU8(dst, GHST_FRAME_GPS_PAYLOAD_SIZE + GHST_FRAME_LENGTH_CRC + GHST_FRAME_LENGTH_TYPE);
@@ -162,7 +162,7 @@ void ghstFrameGpsSecondaryTelemetry(sbuf_t *dst)
 }
 
 // Mag, Baro (and Vario) data
-void ghstFrameMagBaro(sbuf_t *dst)
+static void ghstFrameMagBaro(sbuf_t *dst)
 {
     int16_t vario = 0;
     int16_t altitude = 0;
@@ -209,7 +209,7 @@ typedef enum {
     GHST_FRAME_START_INDEX = 0,
     GHST_FRAME_PACK_INDEX = GHST_FRAME_START_INDEX, // Battery (Pack) data
     GHST_FRAME_GPS_PRIMARY_INDEX,                   // GPS, primary values (Lat, Long, Alt)
-    GHST_FRAME_GPS_SECONDARY_INDEX,                 // GPS, secondary values (Sat Count, HDOP, etc.)
+    GHST_FRAME_GPS_SECONDARY_INDEX,                 // GPS, secondary values (Sat Count, DOP, etc.)
     GHST_FRAME_MAGBARO_INDEX,                       // Magnetometer/Baro values
     GHST_SCHEDULE_COUNT_MAX
 } ghstFrameTypeIndex_e;
@@ -314,8 +314,8 @@ void initGhstTelemetry(void)
 #endif
 
 #if defined(USE_BARO) || defined(USE_MAG) || defined(USE_VARIO)
-    if ((sensors(SENSOR_BARO) && telemetryIsSensorEnabled(SENSOR_ALTITUDE)) 
-        || (sensors(SENSOR_MAG) && telemetryIsSensorEnabled(SENSOR_HEADING)) 
+    if ((sensors(SENSOR_BARO) && telemetryIsSensorEnabled(SENSOR_ALTITUDE))
+        || (sensors(SENSOR_MAG) && telemetryIsSensorEnabled(SENSOR_HEADING))
         || (sensors(SENSOR_VARIO) && telemetryIsSensorEnabled(SENSOR_VARIO))) {
         ghstSchedule[index++] = BIT(GHST_FRAME_MAGBARO_INDEX);
     }

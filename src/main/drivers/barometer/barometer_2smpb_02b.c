@@ -99,7 +99,6 @@ typedef struct {
 static baroState_t  baroState;
 static uint8_t baroDataBuf[6];
 
-
 static int32_t readSignedRegister(const extDevice_t *dev, uint8_t reg, uint8_t nBytes)
 {
     uint8_t buf[3];
@@ -193,17 +192,17 @@ static void busDeviceDeInit(const extDevice_t *dev)
 {
 #ifdef USE_BARO_SPI_2SMBP_02B
     if (dev->bus->busType == BUS_TYPE_SPI) {
-        spiPreinitByIO(dev->busType_u.spi.csnPin);
+        ioPreinitByIO(dev->busType_u.spi.csnPin, IOCFG_IPU, PREINIT_PIN_STATE_HIGH);
     }
 #else
     UNUSED(dev);
 #endif
 }
 
-static void b2smpbStartUP(baroDev_t *baro)
+static bool b2smpbStartUP(baroDev_t *baro)
 {
     // start a forced measurement
-    busWriteRegister(&baro->dev, REG_CTRL_MEAS, REG_CLT_MEAS_VAL_TAVG4X_PAVG32X_FORCED);
+    return busWriteRegister(&baro->dev, REG_CTRL_MEAS, REG_CLT_MEAS_VAL_TAVG4X_PAVG32X_FORCED);
 }
 
 static bool b2smpbReadUP(baroDev_t *baro)
@@ -213,9 +212,7 @@ static bool b2smpbReadUP(baroDev_t *baro)
     }
 
     // Start reading temperature and pressure data
-    busReadRegisterBufferStart(&baro->dev, REG_PRESS_TXD2, &baroDataBuf[0], 6);
-
-    return true;
+    return busReadRegisterBufferStart(&baro->dev, REG_PRESS_TXD2, &baroDataBuf[0], 6);
 }
 
 static bool b2smpbGetUP(baroDev_t *baro)
@@ -247,9 +244,11 @@ static bool b2smpbGetUP(baroDev_t *baro)
     return true;
 }
 
-static void b2smpbStartUT(baroDev_t *baro)
+static bool b2smpbStartUT(baroDev_t *baro)
 {
     UNUSED(baro);
+
+    return true;
 }
 
 static bool b2smpbReadUT(baroDev_t *baro)

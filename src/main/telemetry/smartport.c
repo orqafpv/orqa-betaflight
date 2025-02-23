@@ -487,7 +487,9 @@ static void freeSmartPortTelemetryPort(void)
 static void configureSmartPortTelemetryPort(void)
 {
     if (portConfig) {
-        portOptions_e portOptions = (telemetryConfig()->halfDuplex ? SERIAL_BIDIR : SERIAL_UNIDIR) | (telemetryConfig()->telemetry_inverted ? SERIAL_NOT_INVERTED : SERIAL_INVERTED);
+        // On SmartPort, SERIAL_INVERTED is default
+        const portOptions_e portOptions = (telemetryConfig()->halfDuplex ? SERIAL_BIDIR : 0)
+            | (telemetryConfig()->telemetry_inverted ? SERIAL_NOT_INVERTED : SERIAL_INVERTED);
 
         smartPortSerialPort = openSerialPort(portConfig->identifier, FUNCTION_TELEMETRY_SMARTPORT, NULL, NULL, SMARTPORT_BAUD, SMARTPORT_UART_MODE, portOptions);
     }
@@ -658,7 +660,7 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
             case FSSP_DATAID_RPM        :
                 escData = getEscSensorData(ESC_SENSOR_COMBINED);
                 if (escData != NULL) {
-                    smartPortSendPackage(id, erpmToRpm(escData->rpm));
+                    smartPortSendPackage(id, lrintf(erpmToRpm(escData->rpm)));
                     *clearToSend = false;
                 }
                 break;
@@ -672,7 +674,7 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
             case FSSP_DATAID_RPM8       :
                 escData = getEscSensorData(id - FSSP_DATAID_RPM1);
                 if (escData != NULL) {
-                    smartPortSendPackage(id, erpmToRpm(escData->rpm));
+                    smartPortSendPackage(id, lrintf(erpmToRpm(escData->rpm)));
                     *clearToSend = false;
                 }
                 break;
@@ -738,15 +740,15 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_ACCX       :
-                smartPortSendPackage(id, lrintf(100 * acc.accADC[X] * acc.dev.acc_1G_rec)); // Multiply by 100 to show as x.xx g on Taranis
+                smartPortSendPackage(id, lrintf(100 * acc.accADC.x * acc.dev.acc_1G_rec)); // Multiply by 100 to show as x.xx g on Taranis
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_ACCY       :
-                smartPortSendPackage(id, lrintf(100 * acc.accADC[Y] * acc.dev.acc_1G_rec));
+                smartPortSendPackage(id, lrintf(100 * acc.accADC.y * acc.dev.acc_1G_rec));
                 *clearToSend = false;
                 break;
             case FSSP_DATAID_ACCZ       :
-                smartPortSendPackage(id, lrintf(100 * acc.accADC[Z] * acc.dev.acc_1G_rec));
+                smartPortSendPackage(id, lrintf(100 * acc.accADC.z * acc.dev.acc_1G_rec));
                 *clearToSend = false;
                 break;
 #endif
@@ -771,7 +773,7 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
                     tmpi += 4;
                 }
 
-                if (FLIGHT_MODE(ANGLE_MODE)) {
+                if (FLIGHT_MODE(ANGLE_MODE | ALT_HOLD_MODE | POS_HOLD_MODE)) {
                     tmpi += 10;
                 }
                 if (FLIGHT_MODE(HORIZON_MODE)) {
@@ -795,9 +797,11 @@ void processSmartPortTelemetry(smartPortPayload_t *payload, volatile bool *clear
             case FSSP_DATAID_T2         :
 #ifdef USE_GPS
                 if (sensors(SENSOR_GPS)) {
-                    // satellite accuracy HDOP: 0 = worst [HDOP > 5.5m], 9 = best [HDOP <= 1.0m]
-                    uint16_t hdop = constrain(scaleRange(gpsSol.dop.hdop, 100, 550, 9, 0), 0, 9) * 100;
-                    smartPortSendPackage(id, (STATE(GPS_FIX) ? 1000 : 0) + (STATE(GPS_FIX_HOME) ? 2000 : 0) + hdop + gpsSol.numSat);
+                    // satellite accuracy PDOP: 0 = worst [PDOP > 5.5m], 9 = best [PDOP <= 1.0m]
+                    // the above comment isn't entirely right. DOP is accuracy relative to specified accuracy of the module, not a value in meters
+                    // eg a value of 1.0 means 1.0 times specified accuracy (typically 2m)
+                    uint16_t pdop = constrain(scaleRange(gpsSol.dop.pdop, 100, 550, 9, 0), 0, 9) * 100;
+                    smartPortSendPackage(id, (STATE(GPS_FIX) ? 1000 : 0) + (STATE(GPS_FIX_HOME) ? 2000 : 0) + pdop + gpsSol.numSat);
                     *clearToSend = false;
                 } else if (featureIsEnabled(FEATURE_GPS)) {
                     smartPortSendPackage(id, 0);

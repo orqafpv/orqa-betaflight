@@ -39,7 +39,6 @@ typedef struct mixerRuntime_s {
 #ifdef USE_DYN_IDLE
     float dynIdleMaxIncrease;
     float dynIdleStartIncrease;
-    float idleThrottleOffset;
     float dynIdleMinRps;
     float dynIdlePGain;
     float prevMinRps;
@@ -56,11 +55,17 @@ typedef struct mixerRuntime_s {
 #if defined(USE_RPM_LIMIT)
     float rpmLimiterRpmLimit;
     float rpmLimiterThrottleScale;
+    float rpmLimiterInitialThrottleScale;
     float rpmLimiterPGain;
     float rpmLimiterIGain;
     float rpmLimiterDGain;
-    pt1Filter_t averageRpmFilter;
+    float rpmLimiterI;
+    pt1Filter_t rpmLimiterAverageRpmFilter;
+    pt1Filter_t rpmLimiterThrottleScaleOffsetFilter;
 #endif
+    float ezLandingThreshold;
+    float ezLandingLimit;
+    float ezLandingSpeed;
 } mixerRuntime_t;
 
 extern mixerRuntime_t mixerRuntime;

@@ -96,16 +96,16 @@ int32_t qmp6988_up = 0;
 int32_t qmp6988_ut = 0;
 static DMA_DATA_ZERO_INIT uint8_t sensor_data[QMP6988_DATA_FRAME_SIZE];
 
-static void qmp6988StartUT(baroDev_t *baro);
+static bool qmp6988StartUT(baroDev_t *baro);
 static bool qmp6988ReadUT(baroDev_t *baro);
 static bool qmp6988GetUT(baroDev_t *baro);
-static void qmp6988StartUP(baroDev_t *baro);
+static bool qmp6988StartUP(baroDev_t *baro);
 static bool qmp6988ReadUP(baroDev_t *baro);
 static bool qmp6988GetUP(baroDev_t *baro);
 
 STATIC_UNIT_TESTED void qmp6988Calculate(int32_t *pressure, int32_t *temperature);
 
-void qmp6988BusInit(const extDevice_t *dev)
+static void qmp6988BusInit(const extDevice_t *dev)
 {
 #ifdef USE_BARO_SPI_QMP6988
     if (dev->bus->busType == BUS_TYPE_SPI) {
@@ -119,7 +119,7 @@ void qmp6988BusInit(const extDevice_t *dev)
 #endif
 }
 
-void qmp6988BusDeinit(const extDevice_t *dev)
+static void qmp6988BusDeinit(const extDevice_t *dev)
 {
 #ifdef USE_BARO_SPI_QMP6988
     if (dev->bus->busType == BUS_TYPE_SPI) {
@@ -279,10 +279,12 @@ bool qmp6988Detect(baroDev_t *baro)
     return true;
 }
 
-static void qmp6988StartUT(baroDev_t *baro)
+static bool qmp6988StartUT(baroDev_t *baro)
 {
     UNUSED(baro);
     // dummy
+
+    return true;
 }
 
 static bool qmp6988ReadUT(baroDev_t *baro)
@@ -299,10 +301,10 @@ static bool qmp6988GetUT(baroDev_t *baro)
     return true;
 }
 
-static void qmp6988StartUP(baroDev_t *baro)
+static bool qmp6988StartUP(baroDev_t *baro)
 {
     // start measurement
-    busWriteRegister(&baro->dev, QMP6988_CTRL_MEAS_REG, QMP6988_PWR_SAMPLE_MODE);
+    return busWriteRegister(&baro->dev, QMP6988_CTRL_MEAS_REG, QMP6988_PWR_SAMPLE_MODE);
 }
 
 static bool qmp6988ReadUP(baroDev_t *baro)
@@ -312,9 +314,7 @@ static bool qmp6988ReadUP(baroDev_t *baro)
     }
 
     // read data from sensor
-    busReadRegisterBufferStart(&baro->dev, QMP6988_PRESSURE_MSB_REG, sensor_data, QMP6988_DATA_FRAME_SIZE);
-
-    return true;
+    return busReadRegisterBufferStart(&baro->dev, QMP6988_PRESSURE_MSB_REG, sensor_data, QMP6988_DATA_FRAME_SIZE);
 }
 
 static bool qmp6988GetUP(baroDev_t *baro)
@@ -341,8 +341,6 @@ static float qmp6988CompensateTemperature(int32_t adc_T)
 
     return T;
 }
-
-
 
 STATIC_UNIT_TESTED void qmp6988Calculate(int32_t *pressure, int32_t *temperature)
 {

@@ -130,7 +130,7 @@ static displayPort_t *cmsDisplayPortSelectNext(void)
     return cmsDisplayPorts[cmsCurrentDevice];
 }
 
-bool cmsDisplayPortSelect(displayPort_t *instance)
+bool cmsDisplayPortSelect(const displayPort_t *instance)
 {
     for (unsigned i = 0; i < cmsDeviceCount; i++) {
         if (cmsDisplayPortSelectNext() == instance) {
@@ -692,7 +692,7 @@ static bool rowIsSkippable(const OSD_Entry *row)
     if (type == OME_String) {
         return true;
     }
-    
+
     if ((type == OME_UINT8 || type == OME_INT8 ||
          type == OME_UINT16 || type == OME_INT16) &&
         ((row->flags == DYNAMIC) || rowSliderOverride(row->flags))) {
@@ -785,7 +785,6 @@ static void cmsDrawMenu(displayPort_t *pDisplay, uint32_t currentTimeUs)
                 return;
             }
         }
-
 
         // Highlight values overridden by sliders
         if (rowSliderOverride(p->flags)) {
@@ -898,11 +897,11 @@ void cmsMenuOpen(void)
         currentCtx = (cmsCtx_t){ NULL, 0, 0 };
         startMenu = &cmsx_menuMain;
 
-#ifdef USE_QUICK_OSD_MENU
+#ifdef USE_OSD_QUICK_MENU
         if (osdConfig()->osd_use_quick_menu) {
             startMenu = &cmsx_menuQuick;
         }
-#endif // USE_QUICK_OSD_MENU
+#endif // USE_OSD_QUICK_MENU
 
         menuStackIdx = 0;
         setArmingDisabled(ARMING_DISABLED_CMS_MENU);
@@ -984,7 +983,7 @@ static void cmsTraverseGlobalExit(const CMS_Menu *pMenu)
 
 const void *cmsMenuExit(displayPort_t *pDisplay, const void *ptr)
 {
-    int exitType = (int)ptr;
+    int exitType = (intptr_t)ptr;
     switch (exitType) {
     case CMS_EXIT_SAVE:
     case CMS_EXIT_SAVEREBOOT:
@@ -1376,7 +1375,7 @@ void cmsSetExternKey(cms_key_e extKey)
         externKey = extKey;
 }
 
-uint16_t cmsHandleKeyWithRepeat(displayPort_t *pDisplay, cms_key_e key, int repeatCount)
+static uint16_t cmsHandleKeyWithRepeat(displayPort_t *pDisplay, cms_key_e key, int repeatCount)
 {
     uint16_t ret = 0;
 

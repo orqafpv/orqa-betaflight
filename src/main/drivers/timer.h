@@ -28,7 +28,9 @@
 #include "drivers/rcc_types.h"
 #include "drivers/resource.h"
 
+#ifdef USE_TIMER
 #include "timer_def.h"
+#endif
 
 #include "pg/timerio.h"
 
@@ -173,13 +175,13 @@ void timerForceOverflow(TIM_TypeDef *tim);
 
 void timerConfigUpdateCallback(const TIM_TypeDef *tim, timerOvrHandlerRec_t *updateCallback);
 
-uint32_t timerClock(TIM_TypeDef *tim);
+uint32_t timerClock(const TIM_TypeDef *tim);
 
 void configTimeBase(TIM_TypeDef *tim, uint16_t period, uint32_t hz);  // TODO - just for migration
 void timerReconfigureTimeBase(TIM_TypeDef *tim, uint16_t period, uint32_t hz);
 
-rccPeriphTag_t timerRCC(TIM_TypeDef *tim);
-uint8_t timerInputIrq(TIM_TypeDef *tim);
+rccPeriphTag_t timerRCC(const TIM_TypeDef *tim);
+uint8_t timerInputIrq(const TIM_TypeDef *tim);
 
 #if defined(USE_TIMER_MGMT)
 extern const resourceOwner_t freeOwner;

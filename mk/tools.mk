@@ -2,10 +2,11 @@
 #
 # Installers for tools
 #
-# NOTE: These are not tied to the default goals
-#       and must be invoked manually
+# NOTE: These are not tied to the default goals and must be invoked manually
 #
-# ARM SDK Version: 10.3-2021.10
+# ARM SDK Version: 13.3.Rel1
+#
+# Release date: July 04, 2024
 #
 ###############################################################
 
@@ -16,53 +17,67 @@
 ##############################
 
 # Set up ARM (STM32) SDK
-ARM_SDK_DIR ?= $(TOOLS_DIR)/gcc-arm-none-eabi-10.3-2021.10
 # Checked below, Should match the output of $(shell arm-none-eabi-gcc -dumpversion)
-GCC_REQUIRED_VERSION ?= 10.3.1
-
-.PHONY: arm_sdk_version
-
-arm_sdk_version:
-	$(V1) $(ARM_SDK_PREFIX)gcc --version
+# must match arm-none-eabi-gcc-<version> file in arm sdk distribution
+GCC_REQUIRED_VERSION ?= 13.3.1
 
 ## arm_sdk_install   : Install Arm SDK
 .PHONY: arm_sdk_install
 
-ARM_SDK_URL_BASE  := https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10
-# source: https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads
-ifeq ($(OSFAMILY), linux)
-  ARM_SDK_URL  := $(ARM_SDK_URL_BASE)-x86_64-linux.tar.bz2
-endif
-
-ifeq ($(OSFAMILY), macosx)
-  ARM_SDK_URL  := $(ARM_SDK_URL_BASE)-mac.tar.bz2
-endif
-
-ifeq ($(OSFAMILY), windows)
-  ARM_SDK_URL  := $(ARM_SDK_URL_BASE)-win32.zip
+# source: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+ifeq ($(OSFAMILY)-$(ARCHFAMILY), linux-x86_64)
+  ARM_SDK_URL := https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi.tar.xz
+  DL_CHECKSUM = 0601a9588bc5b9c99ad2b56133b7f118
+else ifeq ($(OSFAMILY)-$(ARCHFAMILY), macosx-x86_64)
+  ARM_SDK_URL := https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-darwin-x86_64-arm-none-eabi.tar.xz
+  DL_CHECKSUM = 4bb141e44b831635fde4e8139d470f1f
+else ifeq ($(OSFAMILY)-$(ARCHFAMILY), macosx-arm64)
+  ARM_SDK_URL := https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-darwin-arm64-arm-none-eabi.tar.xz
+  DL_CHECKSUM = f1c18320bb3121fa89dca11399273f4e
+else ifeq ($(OSFAMILY), windows)
+  ARM_SDK_URL := https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-eabi.zip
+  DL_CHECKSUM = 39d9882ca0eb475e81170ae826c1435d
+else
+  $(error No toolchain URL defined for $(OSFAMILY)-$(ARCHFAMILY))
 endif
 
 ARM_SDK_FILE := $(notdir $(ARM_SDK_URL))
+# remove compression suffixes
+ARM_SDK_DIR := $(TOOLS_DIR)/$(patsubst %.zip,%, 	\
+			    $(patsubst %.tar.xz,%, 	\
+			    $(notdir $(ARM_SDK_URL))))
 
-SDK_INSTALL_MARKER := $(ARM_SDK_DIR)/bin/arm-none-eabi-gcc-$(GCC_REQUIRED_VERSION)
+SDK_INSTALL_MARKER := $(ARM_SDK_DIR)/.installed
+
+.PHONY: arm_sdk_version
+
+arm_sdk_version: | $(ARM_SDK_DIR)
+	$(V1) $(ARM_SDK_DIR)/bin/arm-none-eabi-gcc --version
 
 # order-only prereq on directory existance:
 arm_sdk_install: | $(TOOLS_DIR)
 arm_sdk_install: arm_sdk_download $(SDK_INSTALL_MARKER)
 
-$(SDK_INSTALL_MARKER):
-ifneq ($(OSFAMILY), windows)
-        # binary only release so just extract it
-	$(V1) tar -C $(TOOLS_DIR) -xjf "$(DL_DIR)/$(ARM_SDK_FILE)"
+$(SDK_INSTALL_MARKER): $(DL_DIR)/$(ARM_SDK_FILE)
+        # verify ckecksum first
+	@checksum=$$(md5sum "$<" | awk '{print $$1}'); \
+	if [ "$$checksum" != "$(DL_CHECKSUM)" ]; then \
+		echo "$@ Checksum mismatch! Expected $(DL_CHECKSUM), got $$checksum."; \
+		exit 1; \
+	fi
+ifeq ($(OSFAMILY), windows)
+	$(V1) unzip -q -d $(TOOLS_DIR) "$<"
 else
-	$(V1) unzip -q -d $(ARM_SDK_DIR) "$(DL_DIR)/$(ARM_SDK_FILE)"
+        # binary only release so just extract it
+	$(V1) tar -C $(TOOLS_DIR) -xf "$<"
 endif
+	$(V1) touch $(SDK_INSTALL_MARKER)
 
 .PHONY: arm_sdk_download
 arm_sdk_download: | $(DL_DIR)
 arm_sdk_download: $(DL_DIR)/$(ARM_SDK_FILE)
 $(DL_DIR)/$(ARM_SDK_FILE):
-    # download the source only if it's newer than what we already have
+        # download the source only if it's newer than what we already have
 	$(V1) curl -L -k -o "$@" $(if $(wildcard $@), -z "$@",) "$(ARM_SDK_URL)"
 
 ## arm_sdk_clean     : Uninstall Arm SDK
@@ -268,7 +283,7 @@ else ifeq (,$(filter %_install test% clean% %-print checks help configs, $(MAKEC
     $(error **ERROR** your arm-none-eabi-gcc is '$(GCC_VERSION)', but '$(GCC_REQUIRED_VERSION)' is expected. Override with 'GCC_REQUIRED_VERSION' in mk/local.mk or run 'make arm_sdk_install' to install the right version automatically in the tools folder of this repo)
   endif
 
-  # ARM tookchain is in the path, and the version is what's required.
+  # ARM toolchain is in the path, and the version is what's required.
   ARM_SDK_PREFIX ?= arm-none-eabi-
 endif
 
