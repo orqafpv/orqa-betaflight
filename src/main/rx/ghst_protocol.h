@@ -63,6 +63,8 @@ typedef enum {
     GHST_UL_RC_CHANS_HS4_12_RSSI   = 0x33,  // 12 bit primary 4 channel, plus RSSI, LQ, RF Mode, and Tx Power
     GHST_UL_RC_CHANS_HS4_12_LAST   = 0x3f,  // 12 bit last frame type
 
+    GHST_UL_VTX_SETUP              = 0x20,	// vTx setup w/o first 4 flight channels
+
     // MSP commands
     GHST_UL_MSP_REQ                = 0x21,  // response request using msp sequence as command
     GHST_UL_MSP_WRITE              = 0x22,  // write
@@ -152,3 +154,20 @@ typedef struct ghstPayloadPulsesRssi_s {
     unsigned int rxNum : 2;				// Rx on which packet was received (0..n)
 	unsigned int txPwrdBm : 6;			// tx power in dBm, use lookup table to map to published mW values
 } __attribute__ ((__packed__)) ghstPayloadPulsesRssi_t;
+
+#ifdef USE_RX_VTX_HYBRID
+// VTX status (rx vtx hybrid boards)
+typedef struct  
+{
+	// 8 bytes + CRC 
+	unsigned int vTxFlags : 8;
+	unsigned int vTxFreq : 16;
+	unsigned int vTxPower : 16;				// 0 = special Tx Off
+	unsigned int vTxBandChan : 8;
+	
+	unsigned int tbd1 : 8;
+	unsigned int tbd2 : 8;
+	unsigned int tbd3 : 8;
+	unsigned int tbd4 : 8;
+} __attribute__ ((__packed__)) ghstRxUL_vTxDat;
+#endif

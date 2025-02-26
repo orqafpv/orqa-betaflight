@@ -368,6 +368,15 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
                 break;
             }
 #endif
+
+            case GHST_UL_VTX_SETUP:
+#ifdef USE_RX_VTX_HYBRID
+                const ghstRxUL_vTxDat* const vTxData = (ghstRxUL_vTxDat*)&ghstValidatedFrame->frame.payload;
+                uint16_t power = vTxData->vTxPower;
+                setVtxPower(power);
+#endif
+                break;
+
             default:
                 DEBUG_SET(DEBUG_GHST, DEBUG_GHST_UNKNOWN_FRAMES, ++unknownFrameCount);
                 break;

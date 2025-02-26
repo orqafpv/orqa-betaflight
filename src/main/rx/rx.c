@@ -88,6 +88,10 @@ static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
 #endif //USE_RX_RSNR
 static timeUs_t lastMspRssiUpdateUs = 0;
 
+#ifdef USE_RX_VTX_HYBRID
+static uint16_t vTxPower = 0;
+#endif
+
 static pt1Filter_t frameErrFilter;
 static pt1Filter_t rssiFilter;
 #ifdef USE_RX_RSSI_DBM
@@ -1008,6 +1012,18 @@ uint8_t rxGetRfMode(void)
 uint16_t rxGetLinkQualityPercent(void)
 {
     return (linkQualitySource == LQ_SOURCE_NONE) ? scaleRange(linkQuality, 0, LINK_QUALITY_MAX_VALUE, 0, 100) : linkQuality;
+}
+#endif
+
+#ifdef USE_RX_VTX_HYBRID
+void setVtxPower(uint16_t vTxPowervalue)
+{
+    vTxPower = vTxPowervalue;
+}
+
+uint16_t getVtxPower(void)
+{
+    return vTxPower;
 }
 #endif
 
