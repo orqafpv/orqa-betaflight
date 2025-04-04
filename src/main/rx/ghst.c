@@ -89,6 +89,20 @@ enum {
     DEBUG_GHST_RX_NUM,
 };
 
+const char *vtx_band_names[] = {
+    "?",
+    "IRC",
+    "R",
+    "E",
+    "B",
+    "A",
+    "L",
+    "IMD8",
+    "IMD6c",
+    "Hi",
+    "Z"
+};
+
 static serialPort_t *serialPort;
 static timeUs_t ghstRxFrameStartAtUs = 0;
 static timeUs_t ghstRxFrameEndAtUs = 0;
@@ -373,7 +387,11 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
 #ifdef USE_RX_VTX_HYBRID
                 const ghstRxUL_vTxDat* const vTxData = (ghstRxUL_vTxDat*)&ghstValidatedFrame->frame.payload;
                 uint16_t power = vTxData->vTxPower;
+                uint8_t band_chan = vTxData->vTxBandChan;
+                VTX_BAND vTxBand = (VTX_BAND) ((band_chan >> 4) & 0x0f);
+				uint8_t vTxChan = band_chan & 0x0f;
                 setVtxPower(power);
+                setVtxBandChan(vTxBand, vTxChan);
 #endif
                 break;
 

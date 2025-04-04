@@ -1748,7 +1748,22 @@ switch (element->type) {
 static void osdElementVtxPower(osdElementParms_t *element)
 {
     uint16_t power = getVtxPower();
-    tfp_sprintf(element->buff, "%d", power);
+    VTX_BAND band = getVtxBand();
+    uint8_t channel = getVtxChan();
+    if(power > 999)
+    {
+        int power_int = power / 1000;
+        int power_frac = ((power - (power_int * 1000)) / 100);
+        if(power_frac != 0)
+            tfp_sprintf(element->buff, "%s:%d:%d.%dW",  vtx_band_names[band], channel, power_int, power_frac);
+        else
+            tfp_sprintf(element->buff, "%s:%d:%dW",  vtx_band_names[band], channel, power_int);
+
+    }
+    else
+    {
+        tfp_sprintf(element->buff, "%s:%d:%d",  vtx_band_names[band], channel, power);
+    }
 }
 #endif
 

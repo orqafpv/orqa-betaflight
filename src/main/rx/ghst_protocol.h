@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define GHST_RX_BAUDRATE                420000
 
@@ -170,4 +171,26 @@ typedef struct
 	unsigned int tbd3 : 8;
 	unsigned int tbd4 : 8;
 } __attribute__ ((__packed__)) ghstRxUL_vTxDat;
+
+// vTx Band List
+typedef enum
+{
+	VTXBAND_Unknown = 0,
+	VTXBAND_First = 1,
+	VTXBAND_IRC = 1,
+	VTXBAND_RaceBand,
+	VTXBAND_BandE,
+	VTXBAND_BandB,
+	VTXBAND_BandA,
+	VTXBAND_LowBand,
+	VTXBAND_IMD8,
+    VTXBAND_IMD6c,
+	VTXBAND_HiBand,
+	VTXBAND_BandZ,
+	VTXBAND_Last = VTXBAND_BandZ
+} VTX_BAND;
+//make sure to update the band names in ghst.c file 
+//when updating the enum list
+extern const char *vtx_band_names[];
+
 #endif

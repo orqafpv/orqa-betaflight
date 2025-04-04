@@ -27,6 +27,8 @@
 
 #include "drivers/io_types.h"
 
+#include "ghst_protocol.h"
+
 #define STICK_CHANNEL_COUNT 4
 
 #define PWM_RANGE_MIN 1000
@@ -218,6 +220,9 @@ uint8_t rxGetRfMode(void);
 #ifdef USE_RX_VTX_HYBRID
 void setVtxPower(uint16_t vTxPowervalue);
 uint16_t getVtxPower(void);
+void setVtxBandChan(VTX_BAND vTxBandvalue, uint8_t vTxChanvalue);
+uint8_t getVtxChan(void);
+VTX_BAND getVtxBand(void);
 #endif
 
 void rxSetUplinkTxPwrMw(uint16_t uplinkTxPwrMwValue);

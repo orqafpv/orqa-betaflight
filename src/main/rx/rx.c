@@ -90,6 +90,8 @@ static timeUs_t lastMspRssiUpdateUs = 0;
 
 #ifdef USE_RX_VTX_HYBRID
 static uint16_t vTxPower = 0;
+static VTX_BAND vTxBand = 0;
+static uint8_t vTxChan = 0;
 #endif
 
 static pt1Filter_t frameErrFilter;
@@ -1024,6 +1026,22 @@ void setVtxPower(uint16_t vTxPowervalue)
 uint16_t getVtxPower(void)
 {
     return vTxPower;
+}
+
+void setVtxBandChan(VTX_BAND vTxBandvalue, uint8_t vTxChanvalue)
+{
+    vTxBand = vTxBandvalue;
+    vTxChan = vTxChanvalue;
+}
+
+uint8_t getVtxChan(void)
+{
+    return vTxChan;
+}
+
+VTX_BAND getVtxBand(void)
+{
+    return vTxBand;
 }
 #endif
 
