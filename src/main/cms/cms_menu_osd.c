@@ -113,6 +113,9 @@ const OSD_Entry menuOsdActiveElemsEntries[] =
 #ifdef USE_VTX_CONTROL
     {"VTX CHAN",           OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_VTX_CHANNEL]},
 #endif // VTX
+#ifdef USE_RX_VTX_HYBRID
+    {"VTX POWER",          OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_VTX_POWER]},
+#endif // VTX POWER FROM GHST
     {"CURRENT (A)",        OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_CURRENT_DRAW]},
     {"USED MAH",           OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_MAH_DRAWN]},
 #ifdef USE_GPS
