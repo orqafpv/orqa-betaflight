@@ -1538,6 +1538,12 @@ static void osdElementVtxChannel(osdElementParms_t *element)
     const char *vtxChannelName = vtxCommonLookupChannelName(vtxDevice, vtxSettingsConfig()->channel);
     unsigned vtxStatus = 0;
     uint8_t vtxPower = vtxSettingsConfig()->power;
+
+    uint16_t power = getVtxPower();
+    VTX_BAND band = getVtxBand();
+    uint8_t channel = getVtxChan();
+    //uint16_t frequency = getVtxFreq();
+
     if (vtxDevice) {
         vtxCommonGetStatus(vtxDevice, &vtxStatus);
 
@@ -1557,6 +1563,26 @@ static void osdElementVtxChannel(osdElementParms_t *element)
 switch (element->type) {
     case OSD_ELEMENT_TYPE_2:
             tfp_sprintf(element->buff, "%s", vtxPowerLabel);
+        break;
+
+    case OSD_ELEMENT_TYPE_3:
+        if(power > 999)
+        {
+            int power_int = power / 1000;
+            int power_frac = ((power - (power_int * 1000)) / 100);
+            if(power_frac != 0)
+                tfp_sprintf(element->buff, "%s:%d:%d.%dW",  vtx_band_names[band], channel, power_int, power_frac);
+                //tfp_sprintf(element->buff, "%d:%d.%dW",  frequency, power_int, power_frac);
+            else
+                tfp_sprintf(element->buff, "%s:%d:%dW",  vtx_band_names[band], channel, power_int);
+                //tfp_sprintf(element->buff, "%d:%dW",  frequency, power_int);
+
+        }
+        else
+        {
+            tfp_sprintf(element->buff, "%s:%d:%d",  vtx_band_names[band], channel, power);
+            //tfp_sprintf(element->buff, "%d:%d",  frequency, power);
+        }
         break;
 
     default:

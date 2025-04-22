@@ -79,6 +79,7 @@ static uint16_t rssi = 0;                  // range: [0;1023]
 static uint16_t rssiRaw = 0;               // range: [0;1023]
 static timeUs_t lastRssiSmoothingUs = 0;
 #ifdef USE_RX_RSSI_DBM
+static int8_t activeAntenna;
 static int16_t rssiDbm = CRSF_RSSI_MIN;    // range: [-130,0]
 static int16_t rssiDbmRaw = CRSF_RSSI_MIN; // range: [-130,0]
 #endif //USE_RX_RSSI_DBM
@@ -87,6 +88,14 @@ static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
 static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
 #endif //USE_RX_RSNR
 static timeUs_t lastMspRssiUpdateUs = 0;
+
+#ifdef USE_RX_VTX_HYBRID
+static uint16_t vTxPower = 0;
+static VTX_BAND vTxBand = 0;
+static uint8_t vTxChan = 0;
+static uint16_t vTxFreq = 0;
+#endif
+
 
 static pt1Filter_t frameErrFilter;
 static pt1Filter_t rssiFilter;
@@ -948,6 +957,16 @@ void setRssiDbmDirect(int16_t newRssiDbm, rssiSource_e source)
     rssiDbm = newRssiDbm;
     rssiDbmRaw = newRssiDbm;
 }
+
+int8_t getActiveAntenna(void)
+{
+    return activeAntenna;
+}
+
+void setActiveAntenna(int8_t antenna)
+{
+    activeAntenna = antenna;
+}
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
@@ -977,6 +996,44 @@ uint16_t rxGetLinkQuality(void)
 uint8_t rxGetRfMode(void)
 {
     return rfMode;
+}
+
+#ifdef USE_RX_VTX_HYBRID
+void setVtxPower(uint16_t vTxPowervalue)
+{
+    vTxPower = vTxPowervalue;
+}
+
+uint16_t getVtxPower(void)
+{
+    return vTxPower;
+}
+
+void setVtxBandChan(VTX_BAND vTxBandvalue, uint8_t vTxChanvalue)
+{
+    vTxBand = vTxBandvalue;
+    vTxChan = vTxChanvalue;
+}
+
+uint8_t getVtxChan(void)
+{
+    return vTxChan;
+}
+
+VTX_BAND getVtxBand(void)
+{
+    return vTxBand;
+}
+#endif
+
+void setVtxFreq(uint16_t vTxFreqvalue)
+{
+    vTxFreq = vTxFreqvalue;
+}
+
+uint16_t getVtxFreq(void)
+{
+    return vTxFreq;
 }
 
 uint16_t rxGetLinkQualityPercent(void)
