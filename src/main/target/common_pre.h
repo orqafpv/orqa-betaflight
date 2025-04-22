@@ -510,6 +510,7 @@ extern uint8_t _dmaram_end__;
 #define USE_RX_LINK_QUALITY_INFO
 #define USE_RX_MSP_OVERRIDE
 #define USE_RX_LINK_UPLINK_POWER
+#define USE_RX_VTX_HYBRID
 
 #define USE_AIRMODE_LPF
 #define USE_GYRO_DLPF_EXPERIMENTAL

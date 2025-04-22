@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define GHST_RX_BAUDRATE                420000
 
@@ -62,6 +63,8 @@ typedef enum {
     GHST_UL_RC_CHANS_HS4_12_13TO16 = 0x32,  // 12 bit primary 4 channel, plus CH13-16
     GHST_UL_RC_CHANS_HS4_12_RSSI   = 0x33,  // 12 bit primary 4 channel, plus RSSI, LQ, RF Mode, and Tx Power
     GHST_UL_RC_CHANS_HS4_12_LAST   = 0x3f,  // 12 bit last frame type
+
+    GHST_UL_VTX_SETUP              = 0x20,	// vTx setup w/o first 4 flight channels
 
     // MSP commands
     GHST_UL_MSP_REQ                = 0x21,  // response request using msp sequence as command
@@ -150,5 +153,45 @@ typedef struct ghstPayloadPulsesRssi_s {
     unsigned int lq: 8;                 // 0-100
     unsigned int rssi: 8;               // 0 - 128 sign inverted, dBm
     unsigned int rfProtocol: 8;
-    signed int txPwrdBm: 8;             // tx power in dBm, use lookup table to map to published mW values
+    unsigned int rxNum : 2;				// Rx on which packet was received (0..n)
+	unsigned int txPwrdBm : 6;			// tx power in dBm, use lookup table to map to published mW values
 } __attribute__ ((__packed__)) ghstPayloadPulsesRssi_t;
+
+#ifdef USE_RX_VTX_HYBRID
+// VTX status (rx vtx hybrid boards)
+typedef struct  
+{
+	// 8 bytes + CRC 
+	unsigned int vTxFlags : 8;
+	unsigned int vTxFreq : 16;
+	unsigned int vTxPower : 16;				// 0 = special Tx Off
+	unsigned int vTxBandChan : 8;
+	
+	unsigned int tbd1 : 8;
+	unsigned int tbd2 : 8;
+	unsigned int tbd3 : 8;
+	unsigned int tbd4 : 8;
+} __attribute__ ((__packed__)) ghstRxUL_vTxDat;
+
+// vTx Band List
+typedef enum
+{
+	VTXBAND_Unknown = 0,
+	VTXBAND_First = 1,
+	VTXBAND_IRC = 1,
+	VTXBAND_RaceBand,
+	VTXBAND_BandE,
+	VTXBAND_BandB,
+	VTXBAND_BandA,
+	VTXBAND_LowBand,
+	VTXBAND_IMD8,
+    VTXBAND_IMD6c,
+	VTXBAND_HiBand,
+	VTXBAND_BandZ,
+	VTXBAND_Last = VTXBAND_BandZ
+} VTX_BAND;
+//make sure to update the band names in ghst.c file 
+//when updating the enum list
+extern const char *vtx_band_names[];
+
+#endif

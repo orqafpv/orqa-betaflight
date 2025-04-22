@@ -1472,6 +1472,9 @@ const clivalue_t valueTable[] = {
 #ifdef USE_CRAFTNAME_MSGS
     { "osd_craftname_msgs",   VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_OSD_CONFIG, offsetof(osdConfig_t, osd_craftname_msgs) },
 #endif //USE_CRAFTNAME_MSGS
+#ifdef USE_RX_VTX_HYBRID
+    { "osd_vtx_power_pos",          VAR_UINT16  | MASTER_VALUE, .config.minmaxUnsigned = { 0, OSD_POSCFG_MAX }, PG_OSD_ELEMENT_CONFIG, offsetof(osdElementConfig_t, item_pos[OSD_VTX_POWER]) },
+#endif // USE_RX_VTX_HYBRID
 #endif // end of #ifdef USE_OSD
 
 // PG_SYSTEM_CONFIG
