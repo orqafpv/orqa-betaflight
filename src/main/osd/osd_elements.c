@@ -1451,7 +1451,20 @@ static void osdElementRtcTime(osdElementParms_t *element)
 #ifdef USE_RX_RSSI_DBM
 static void osdElementRssiDbm(osdElementParms_t *element)
 {
-    tfp_sprintf(element->buff, "%c%3d", SYM_RSSI, getRssiDbm());
+    const int8_t antenna = getActiveAntenna();
+    const int16_t osdRssiDbm = getRssiDbm();
+    static bool diversity = false;
+
+    if (osdRssiDbm < osdConfig()->rssi_dbm_alarm) {
+        element->attr = DISPLAYPORT_ATTR_CRITICAL;
+    }
+
+    if (antenna || diversity) {
+        diversity = true;
+        tfp_sprintf(element->buff, "%c%3d:%d", SYM_RSSI, osdRssiDbm, antenna + 1);
+    } else {
+        tfp_sprintf(element->buff, "%c%3d", SYM_RSSI, osdRssiDbm);
+    }
 }
 #endif // USE_RX_RSSI_DBM
 
