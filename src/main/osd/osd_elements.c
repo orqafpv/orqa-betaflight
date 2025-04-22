@@ -1627,7 +1627,7 @@ static void osdElementRssiDbm(osdElementParms_t *element)
     static bool diversity = false;
 
     if (osdRssiDbm < osdConfig()->rssi_dbm_alarm) {
-        element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
+        element->attr = DISPLAYPORT_ATTR_CRITICAL;
     }
 
     if (antenna || diversity) {
