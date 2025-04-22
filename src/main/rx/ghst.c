@@ -85,6 +85,22 @@ enum {
     DEBUG_GHST_UNKNOWN_FRAMES,
     DEBUG_GHST_RX_RSSI,
     DEBUG_GHST_RX_LQ,
+    DEBUG_GHST_TX_PWR,
+    DEBUG_GHST_RX_NUM,
+};
+
+const char *vtx_band_names[] = {
+    "?",
+    "IRC",
+    "R",
+    "E",
+    "B",
+    "A",
+    "L",
+    "IMD8",
+    "IMD6c",
+    "Hi",
+    "Z"
 };
 
 static serialPort_t *serialPort;
@@ -269,6 +285,8 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
 
                     DEBUG_SET(DEBUG_GHST, DEBUG_GHST_RX_RSSI, -rssiFrame->rssi);
                     DEBUG_SET(DEBUG_GHST, DEBUG_GHST_RX_LQ, rssiFrame->lq);
+                    DEBUG_SET(DEBUG_GHST, DEBUG_GHST_RX_NUM, rssiFrame->rxNum);
+                    DEBUG_SET(DEBUG_GHST, DEBUG_GHST_TX_PWR, rssiFrame->txPwrdBm);
 
                     ghstRfProtocol = rssiFrame->rfProtocol;
 
@@ -289,6 +307,7 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
 
 #ifdef USE_RX_RSSI_DBM
                     setRssiDbm(-rssiFrame->rssi, RSSI_SOURCE_RX_PROTOCOL);
+                    setActiveAntenna(rssiFrame->rxNum);
 #endif
 
 #ifdef USE_RX_LINK_QUALITY_INFO
@@ -363,6 +382,23 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
                 break;
             }
 #endif
+
+            case GHST_UL_VTX_SETUP:
+#ifdef USE_RX_VTX_HYBRID
+                ;
+                const ghstRxUL_vTxDat* const vTxData = (ghstRxUL_vTxDat*)&ghstValidatedFrame->frame.payload;
+                ;
+                uint16_t power = vTxData->vTxPower;
+                uint8_t band_chan = vTxData->vTxBandChan;
+                VTX_BAND vTxBand = (VTX_BAND) ((band_chan >> 4) & 0x0f);
+				uint8_t vTxChan = band_chan & 0x0f;
+                uint16_t vTxFreq = vTxData->vTxFreq;
+                setVtxPower(power);
+                setVtxBandChan(vTxBand, vTxChan);
+                setVtxFreq(vTxFreq);
+#endif
+                break;
+
             default:
                 DEBUG_SET(DEBUG_GHST, DEBUG_GHST_UNKNOWN_FRAMES, ++unknownFrameCount);
                 break;

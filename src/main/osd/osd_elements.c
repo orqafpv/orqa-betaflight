@@ -1773,6 +1773,32 @@ switch (element->type) {
 }
 #endif // USE_VTX_COMMON
 
+#ifdef USE_RX_VTX_HYBRID
+static void osdElementVtxPower(osdElementParms_t *element)
+{
+    uint16_t power = getVtxPower();
+    //VTX_BAND band = getVtxBand();
+    //uint8_t channel = getVtxChan();
+    uint16_t frequency = getVtxFreq();
+    if(power > 999)
+    {
+        int power_int = power / 1000;
+        int power_frac = ((power - (power_int * 1000)) / 100);
+        if(power_frac != 0)
+            //tfp_sprintf(element->buff, "%s:%d:%d.%dW",  vtx_band_names[band], channel, power_int, power_frac);
+            tfp_sprintf(element->buff, "%d:%d.%dW",  frequency, power_int, power_frac);
+        else
+            //tfp_sprintf(element->buff, "%s:%d:%dW",  vtx_band_names[band], channel, power_int);
+            tfp_sprintf(element->buff, "%d:%dW",  frequency, power_int);
+
+    }
+    else
+    {
+        tfp_sprintf(element->buff, "%d:%d",  frequency, power);
+    }
+}
+#endif
+
 static void osdElementAuxValue(osdElementParms_t *element)
 {
     tfp_sprintf(element->buff, "%c%d", osdConfig()->aux_symbol, osdAuxValue);
@@ -1847,6 +1873,7 @@ static const uint8_t osdElementDisplayOrder[] = {
     OSD_FLYMODE,
     OSD_THROTTLE_POS,
     OSD_VTX_CHANNEL,
+    OSD_VTX_POWER,
     OSD_CURRENT_DRAW,
     OSD_MAH_DRAWN,
     OSD_WATT_HOURS_DRAWN,
@@ -1963,6 +1990,9 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_THROTTLE_POS]            = osdElementThrottlePosition,
 #ifdef USE_VTX_COMMON
     [OSD_VTX_CHANNEL]             = osdElementVtxChannel,
+#endif
+#ifdef USE_RX_VTX_HYBRID
+    [OSD_VTX_POWER]             = osdElementVtxPower,
 #endif
     [OSD_CURRENT_DRAW]            = osdElementCurrentDraw,
     [OSD_MAH_DRAWN]               = osdElementMahDrawn,
