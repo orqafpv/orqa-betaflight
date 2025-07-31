@@ -69,6 +69,16 @@ typedef enum {
     // MSP commands
     GHST_UL_MSP_REQ                = 0x21,  // response request using msp sequence as command
     GHST_UL_MSP_WRITE              = 0x22,  // write
+
+    GHST_UL_SET_WP_0               = 0x50,  // usually used for setting home position
+    GHST_UL_SET_WP_1               = 0x51,  // set waypoint 1
+    GHST_UL_SET_WP_2               = 0x52,  // set waypoint 2
+    GHST_UL_SET_WP_3               = 0x53,  // set waypoint 3
+    GHST_UL_SET_WP_4               = 0x54,  // set waypoint 4
+    GHST_UL_SET_WP_5               = 0x55,  // set waypoint 5
+    GHST_UL_SET_WP_6               = 0x56,  // set waypoint 6
+    GHST_UL_SET_WP_7               = 0x57,  // set waypoint 7
+
 } ghstUl_e;
 
 typedef enum {
@@ -171,6 +181,15 @@ typedef struct
 	unsigned int tbd3 : 8;
 	unsigned int tbd4 : 8;
 } __attribute__ ((__packed__)) ghstRxUL_vTxDat;
+
+// Ghost Waypoint Data
+// 14 bytes 
+typedef struct  
+{
+	int32_t wpLat;
+	int32_t wpLong;
+	int16_t wpAlt;
+} __attribute__ ((__packed__)) ghstUL_wp;
 
 // vTx Band List
 typedef enum

@@ -2613,6 +2613,19 @@ void GPS_reset_home_position(void)
     GPS_calculateDistanceFlown(true); // Initialize
 }
 
+void GPS_set_home_position(int32_t lat, int32_t lon)
+// runs on GHST rx request to update home position mid-flight (rx/ghst.c)
+{
+        if (STATE(GPS_FIX_HOME) && gpsSol.numSat >= gpsRescueConfig()->minSats) {
+            GPS_home[GPS_LATITUDE] = lat;
+            GPS_home[GPS_LONGITUDE] = lon;
+            GPS_calc_longitude_scaling(lat);
+            //ENABLE_STATE(GPS_FIX_HOME);
+            // no point beeping success here since we are in flight
+        }
+    GPS_calculateDistanceFlown(true); // initialize
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 // Get distance between two points in cm using spherical to Cartesian transform
 // One one latitude unit, or one longitude unit at the equator, equals 1.113195 cm.
