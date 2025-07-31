@@ -42,6 +42,7 @@
 #include "drivers/time.h"
 
 #include "io/serial.h"
+#include "io/gps.h"
 
 #include "rx/rx.h"
 #include "rx/ghst.h"
@@ -397,6 +398,13 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
                 setVtxBandChan(vTxBand, vTxChan);
                 setVtxFreq(vTxFreq);
 #endif
+                break;
+            case GHST_UL_SET_WP_0:
+                ;
+                const ghstUL_wp* const wpData = (ghstUL_wp*)&ghstValidatedFrame->frame.payload;
+                int32_t lat = wpData->wpLat;
+                int32_t lon = wpData->wpLong;
+                GPS_set_home_position(lat, lon);
                 break;
 
             default:
