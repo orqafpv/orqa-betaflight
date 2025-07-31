@@ -186,9 +186,9 @@ typedef struct
 // 14 bytes 
 typedef struct  
 {
-	int32_t wpLat;
-	int32_t wpLong;
-	int16_t wpAlt;
+	uint32_t wpLat;
+	uint32_t wpLong;
+	//int16_t wpAlt;
 } __attribute__ ((__packed__)) ghstUL_wp;
 
 // vTx Band List
