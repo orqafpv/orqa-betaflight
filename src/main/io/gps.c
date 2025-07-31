@@ -1870,6 +1870,19 @@ void GPS_reset_home_position(void)
     GPS_calculateDistanceFlown(true); // Initialize
 }
 
+void GPS_set_home_position(int32_t lat, int32_t lon)
+// runs on GHST rx request to update home position mid-flight (rx/ghst.c)
+{
+        if (STATE(GPS_FIX_HOME) && gpsSol.numSat >= gpsRescueConfig()->minSats) {
+            GPS_home[GPS_LATITUDE] = lat;
+            GPS_home[GPS_LONGITUDE] = lon;
+            GPS_calc_longitude_scaling(lat);
+            //ENABLE_STATE(GPS_FIX_HOME);
+            // no point beeping success here since we are in flight
+        }
+    GPS_calculateDistanceFlown(true); // initialize
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 #define DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS 1.113195f
 #define TAN_89_99_DEGREES 5729.57795f
