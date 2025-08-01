@@ -187,8 +187,10 @@ typedef struct
 // 14 bytes 
 typedef struct  
 {
+    uint8_t index;
+    uint32_t wpLong;
 	uint32_t wpLat;
-	uint32_t wpLong;
+	
 	//int16_t wpAlt;
 } __attribute__ ((__packed__)) ghstUL_wp;
 
