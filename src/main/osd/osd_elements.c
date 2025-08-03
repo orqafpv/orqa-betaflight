@@ -1627,7 +1627,7 @@ static void osdElementRssiDbm(osdElementParms_t *element)
     static bool diversity = false;
 
     if (osdRssiDbm < osdConfig()->rssi_dbm_alarm) {
-        element->attr = DISPLAYPORT_ATTR_CRITICAL;
+        element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
     }
 
     if (antenna || diversity) {
@@ -1740,8 +1740,8 @@ static void osdElementVtxChannel(osdElementParms_t *element)
     unsigned vtxStatus = 0;
 
     uint16_t power = getVtxPower();
-    VTX_BAND band = getVtxBand();
-    uint8_t channel = getVtxChan();
+    VTX_BAND ghostband = getVtxBand();
+    uint8_t ghostchannel = getVtxChan();
     //uint16_t frequency = getVtxFreq();
 
     uint8_t vtxPower = vtxSettingsConfig()->power;
@@ -1772,16 +1772,16 @@ switch (element->type) {
             int power_int = power / 1000;
             int power_frac = ((power - (power_int * 1000)) / 100);
             if(power_frac != 0)
-                tfp_sprintf(element->buff, "%s:%d:%d.%dW",  vtx_band_names[band], channel, power_int, power_frac);
+                tfp_sprintf(element->buff, "%s:%d:%d.%dW",  vtx_band_names[ghostband], ghostchannel, power_int, power_frac);
                 //tfp_sprintf(element->buff, "%d:%d.%dW",  frequency, power_int, power_frac);
             else
-                tfp_sprintf(element->buff, "%s:%d:%dW",  vtx_band_names[band], channel, power_int);
+                tfp_sprintf(element->buff, "%s:%d:%dW",  vtx_band_names[ghostband], ghostchannel, power_int);
                 //tfp_sprintf(element->buff, "%d:%dW",  frequency, power_int);
 
         }
         else
         {
-            tfp_sprintf(element->buff, "%s:%d:%d",  vtx_band_names[band], channel, power);
+            tfp_sprintf(element->buff, "%s:%d:%d",  vtx_band_names[ghostband], ghostchannel, power);
             //tfp_sprintf(element->buff, "%d:%d",  frequency, power);
         }
         break;

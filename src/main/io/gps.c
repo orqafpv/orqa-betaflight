@@ -2617,8 +2617,8 @@ void GPS_set_home_position(int32_t lat, int32_t lon)
 // runs on GHST rx request to update home position mid-flight (rx/ghst.c)
 {
         if (STATE(GPS_FIX_HOME) && gpsSol.numSat >= gpsRescueConfig()->minSats) {
-            GPS_home[GPS_LATITUDE] = lat;
-            GPS_home[GPS_LONGITUDE] = lon;
+            GPS_home_llh.lat = lat;
+            GPS_home_llh.lon = lon;
             GPS_calc_longitude_scaling(lat);
             //ENABLE_STATE(GPS_FIX_HOME);
             // no point beeping success here since we are in flight
