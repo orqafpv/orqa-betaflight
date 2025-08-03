@@ -375,15 +375,17 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
 #if defined(USE_TELEMETRY_GHST) && defined(USE_MSP_OVER_TELEMETRY)
             case GHST_UL_MSP_REQ:
                 ;
-                const ghstUL_wp* const wpData = (ghstUL_wp*)&ghstValidatedFrame->frame.payload;
+                const ghstUL_wp* const wpData = (ghstUL_wp*)&ghstValidatedFrame->frame.payload;          
                 
-                
-                int32_t lat = wpData->wpLat;
-                int32_t lon = wpData->wpLong;
 
-                int32_t leLat = ((lat>>24)&0xff) | ((lat>>8)&0xff00) | ((lat<<8)&0xff0000) | ((lat<<24)&0xff000000);
-                int32_t leLon = ((lon>>24)&0xff) | ((lon>>8)&0xff00) | ((lon<<8)&0xff0000) | ((lon<<24)&0xff000000);
-                GPS_set_home_position(leLat, leLon);
+                int32_t lat = __builtin_bswap32(wpData->wpLat);
+                int32_t lon = __builtin_bswap32(wpData->wpLong);
+
+                int32_t signedLat = (int32_t)lat;
+                int32_t signedLon = (int32_t)lon; 
+                
+                
+                GPS_set_home_position(signedLat, signedLon);
                 break;
             case GHST_UL_MSP_WRITE: {
                 static uint8_t mspFrameCounter = 0;
