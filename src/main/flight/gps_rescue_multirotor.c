@@ -807,7 +807,7 @@ void gpsRescueUpdate(void)
             // introduce roll slowly and limit to half the max pitch angle; earth referenced yaw may add more roll via angle code
             rescueState.intent.rollAngleLimitDeg = 0.5f * rescueState.intent.pitchAngleLimitDeg * rescueState.intent.velocityItermRelax;
             if (rescueState.sensor.distanceToHomeM <= rescueState.intent.descentDistanceM) {
-                rescueState.phase = RESCUE_DESCENT;
+                //rescueState.phase = RESCUE_DESCENT;
                 rescueState.intent.secondsFailing = 0; // reset sanity timer for descent
             }
         }
