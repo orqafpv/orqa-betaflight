@@ -373,19 +373,6 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
 
 #if defined(USE_TELEMETRY_GHST) && defined(USE_MSP_OVER_TELEMETRY)
             case GHST_UL_MSP_REQ:
-                ;
-                const ghstUL_wp* const wpData = (ghstUL_wp*)&ghstValidatedFrame->frame.payload;          
-                
-
-                int32_t lat = __builtin_bswap32(wpData->wpLat);
-                int32_t lon = __builtin_bswap32(wpData->wpLong);
-
-                int32_t signedLat = (int32_t)lat;
-                int32_t signedLon = (int32_t)lon; 
-                
-                
-                GPS_set_home_position(signedLat, signedLon);
-                break;
             case GHST_UL_MSP_WRITE: {
                 static uint8_t mspFrameCounter = 0;
                 DEBUG_SET(DEBUG_GHST_MSP, 0, ++mspFrameCounter);
@@ -411,13 +398,13 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
                 setVtxFreq(vTxFreq);
 #endif
                 break;
-            /*case GHST_UL_SET_WP_0:
+            case GHST_UL_SET_WP_0:
                 ;
                 const ghstUL_wp* const wpData = (ghstUL_wp*)&ghstValidatedFrame->frame.payload;
-                int32_t lat = wpData->wpLat;
-                int32_t lon = wpData->wpLong;
+                int32_t lat =(int32_t)(wpData->wpLat);
+                int32_t lon =(int32_t)(wpData->wpLong);
                 GPS_set_home_position(lat, lon);
-                break;*/
+                break;
 
             default:
                 DEBUG_SET(DEBUG_GHST, DEBUG_GHST_UNKNOWN_FRAMES, ++unknownFrameCount);

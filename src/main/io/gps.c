@@ -1880,7 +1880,7 @@ void GPS_set_home_position(int32_t lat, int32_t lon)
             //ENABLE_STATE(GPS_FIX_HOME);
             // no point beeping success here since we are in flight
         }
-    GPS_calculateDistanceFlown(true); // initialize
+    GPS_calculateDistanceFlown(false); // dont initialize
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

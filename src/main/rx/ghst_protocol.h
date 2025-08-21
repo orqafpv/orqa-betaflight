@@ -171,7 +171,7 @@ typedef struct ghstPayloadPulsesRssi_s {
 // VTX status (rx vtx hybrid boards)
 typedef struct  
 {
-	// 8 bytes + CRC 
+	// 10 bytes + CRC 
 	unsigned int vTxFlags : 8;
 	unsigned int vTxFreq : 16;
 	unsigned int vTxPower : 16;				// 0 = special Tx Off
@@ -187,11 +187,9 @@ typedef struct
 // 14 bytes 
 typedef struct  
 {
-    uint8_t index;
-    uint32_t wpLong;
-	uint32_t wpLat;
-	
-	//int16_t wpAlt;
+    int32_t wpLat;
+    int32_t wpLong;
+	int16_t wpAlt;
 } __attribute__ ((__packed__)) ghstUL_wp;
 
 // vTx Band List
