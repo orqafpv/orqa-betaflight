@@ -124,6 +124,7 @@
 #include "io/vtx_rtc6705.h"
 #include "io/vtx_smartaudio.h"
 #include "io/vtx_tramp.h"
+#include "io/safetyboard.h"
 
 #include "msc/emfat_file.h"
 #ifdef USE_PERSISTENT_MSC_RTC
@@ -974,6 +975,10 @@ void init(void)
             featureDisableImmediate(FEATURE_OSD);
         }
     }
+
+#ifdef USE_SAFETYBOARD
+    safetyBoardInit();
+#endif
 #endif // USE_OSD
 
 #if defined(USE_CMS) && defined(USE_MSP_DISPLAYPORT)

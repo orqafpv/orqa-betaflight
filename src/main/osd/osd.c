@@ -77,6 +77,7 @@
 #include "io/beeper.h"
 #include "io/flashfs.h"
 #include "io/gps.h"
+#include "io/safetyboard.h"
 
 #include "osd/osd.h"
 #include "osd/osd_elements.h"
@@ -1301,6 +1302,9 @@ bool osdUpdateCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
 // Called when there is OSD update work to be done
 void osdUpdate(timeUs_t currentTimeUs)
 {
+#ifdef USE_SAFETYBOARD
+    SafetyBoardDataReceive();
+#endif
     static uint16_t osdStateDurationFractionUs[OSD_STATE_COUNT] = { 0 };
     static uint32_t osdElementDurationUs[OSD_ITEM_COUNT] = { 0 };
     static uint8_t osdElementGroupMemberships[OSD_ITEM_COUNT];

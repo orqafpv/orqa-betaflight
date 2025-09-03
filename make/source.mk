@@ -180,6 +180,7 @@ COMMON_SRC = \
             osd/osd.c \
             osd/osd_elements.c \
             osd/osd_warnings.c \
+            io/safetyboard.c \
             sensors/barometer.c \
             sensors/rangefinder.c \
             telemetry/telemetry.c \

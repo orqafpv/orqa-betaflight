@@ -151,6 +151,13 @@ void pgResetFn_serialConfig(serialConfig_t *serialConfig)
     }
 #endif
 
+#ifdef USE_SAFETYBOARD
+    serialPortConfig_t *safetyBoardUartConfig = serialFindPortConfigurationMutable(SAFETYBOARD_UART);
+    if (safetyBoardUartConfig) {
+        safetyBoardUartConfig->functionMask = FUNCTION_SAFETYBOARD;
+    }
+#endif
+
 #ifdef SBUS_TELEMETRY_UART
     serialPortConfig_t *serialTlemetryUartConfig = serialFindPortConfigurationMutable(SBUS_TELEMETRY_UART);
     if (serialTlemetryUartConfig) {
