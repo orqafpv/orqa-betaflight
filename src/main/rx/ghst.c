@@ -333,22 +333,6 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
                     startIdx = 12;
                     break;
 
-                case GHST_UL_VTX_SETUP:
-#ifdef USE_RX_VTX_HYBRID
-                    ;
-                    const ghstRxUL_vTxDat* const vTxData = (ghstRxUL_vTxDat*)&ghstValidatedFrame->frame.payload;
-                    ;
-                    uint16_t power = vTxData->vTxPower;
-                    uint8_t band_chan = vTxData->vTxBandChan;
-                    VTX_BAND vTxBand = (VTX_BAND) ((band_chan >> 4) & 0x0f);
-				    uint8_t vTxChan = band_chan & 0x0f;
-                    uint16_t vTxFreq = vTxData->vTxFreq;
-                    setVtxPower(power);
-                    setVtxBandChan(vTxBand, vTxChan);
-                    setVtxFreq(vTxFreq);
-#endif
-                    break;
-
                 default:
                     DEBUG_SET(DEBUG_GHST, DEBUG_GHST_UNKNOWN_FRAMES, ++unknownFrameCount);
                     break;
@@ -398,6 +382,21 @@ static bool ghstProcessFrame(const rxRuntimeState_t *rxRuntimeState)
                 break;
             }
 #endif
+                case GHST_UL_VTX_SETUP:
+#ifdef USE_RX_VTX_HYBRID
+                    ;
+                    const ghstRxUL_vTxDat* const vTxData = (ghstRxUL_vTxDat*)&ghstValidatedFrame->frame.payload;
+                    ;
+                    uint16_t power = vTxData->vTxPower;
+                    uint8_t band_chan = vTxData->vTxBandChan;
+                    VTX_BAND vTxBand = (VTX_BAND) ((band_chan >> 4) & 0x0f);
+				    uint8_t vTxChan = band_chan & 0x0f;
+                    uint16_t vTxFreq = vTxData->vTxFreq;
+                    setVtxPower(power);
+                    setVtxBandChan(vTxBand, vTxChan);
+                    setVtxFreq(vTxFreq);
+#endif
+                    break;
             default:
                 DEBUG_SET(DEBUG_GHST, DEBUG_GHST_UNKNOWN_FRAMES, ++unknownFrameCount);
                 break;
