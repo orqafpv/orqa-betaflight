@@ -80,6 +80,7 @@
 #include "pg/rx_spi.h"
 #include "pg/sdcard.h"
 #include "pg/vtx_table.h"
+#include "pg/pilot.h"
 
 #include "rx/rx.h"
 #include "rx/rx_spi.h"
@@ -199,6 +200,11 @@ static void validateAndFixRatesSettings(void)
 
 static void validateAndFixConfig(void)
 {
+    // Clear custom messages to not store current state
+    for(int i = 0; i < OSD_CUSTOM_MSG_COUNT; i++){
+        pilotConfigMutable()->message[i][0] = '\0';
+    }
+
 #if !defined(USE_QUAD_MIXER_ONLY)
     // Reset unsupported mixer mode to default.
     // This check will be gone when motor/servo mixers are loaded dynamically
