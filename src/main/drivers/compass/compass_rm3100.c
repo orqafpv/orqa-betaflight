@@ -27,6 +27,8 @@
 #define TMRC_600HZ             0x92 
 #define CMM_CONT_MODE          0x79 
 
+static uint8_t rm3100_read_state = 0;
+
 static bool rm3100Init(magDev_t *mag)
 {
     extDevice_t *dev = &mag->dev;
@@ -52,29 +54,41 @@ static bool rm3100Init(magDev_t *mag)
 static bool rm3100Read(magDev_t *mag, int16_t *magData)
 {
     extDevice_t *dev = &mag->dev;
-    uint8_t status;
-    uint8_t buf[9]; // 3 axes * 3 bytes each
 
-    if (!busReadRegisterBuffer(dev, RM3100_REG_STATUS, &status, 1) || !(status & 0x80)) {
-        return false;
+    if (rm3100_read_state == 0) {
+        uint8_t status;
+        
+        if (busReadRegisterBuffer(dev, RM3100_REG_STATUS, &status, 1)) {
+            if ((status & 0x80) != 0) {
+                rm3100_read_state = 1; 
+            }
+        }
+        
+        return false; 
+    } 
+    
+    else if (rm3100_read_state == 1) {
+        uint8_t buf[9]; // 3 axes * 3 bytes each
+
+        rm3100_read_state = 0; 
+        
+        if (!busReadRegisterBuffer(dev, RM3100_REG_MX, (uint8_t*)&buf, sizeof(buf))) {
+            return false; 
+        }
+
+        int32_t xraw = (int32_t)(((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8)) >> 8;
+        int32_t yraw = (int32_t)(((uint32_t)buf[3] << 24) | ((uint32_t)buf[4] << 16) | ((uint32_t)buf[5] << 8)) >> 8;
+        int32_t zraw = (int32_t)(((uint32_t)buf[6] << 24) | ((uint32_t)buf[7] << 16) | ((uint32_t)buf[8] << 8)) >> 8;
+
+        magData[X] = (int16_t)(xraw / 10);
+        magData[Y] = (int16_t)(yraw / 10);
+        magData[Z] = (int16_t)(zraw / 10);
+        
+
+        return true; 
     }
-
-    if (!busReadRegisterBuffer(dev, RM3100_REG_MX, buf, 9)) {
-        return false;
-    }
-
-
-    int32_t x32, y32, z32;
-
-    x32 = (int32_t)(((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8)) >> 8;
-    y32 = (int32_t)(((uint32_t)buf[3] << 24) | ((uint32_t)buf[4] << 16) | ((uint32_t)buf[5] << 8)) >> 8;
-    z32 = (int32_t)(((uint32_t)buf[6] << 24) | ((uint32_t)buf[7] << 16) | ((uint32_t)buf[8] << 8)) >> 8;
-
-    magData[X] = (int16_t)(x32 / 10); 
-    magData[Y] = (int16_t)(y32 / 10);
-    magData[Z] = (int16_t)(z32 / 10);
-
-    return true;
+    
+    return false;
 }
 
 bool rm3100Detect(magDev_t *magDev)
