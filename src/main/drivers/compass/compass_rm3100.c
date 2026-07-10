@@ -32,21 +32,39 @@
 
 #include "compass.h"
 
-// RM3100 Registers
-#define RM3100_REG_POLL         0x00
-#define RM3100_REG_CMM          0x01
-#define RM3100_REG_CCX1         0x04
-#define RM3100_REG_TMRC         0x0B 
-#define RM3100_REG_MX           0x24 
-#define RM3100_REG_STATUS       0x34
-#define RM3100_REG_REVID        0x36
+//#pragma GCC optimize ("O0")
 
-#define RM3100_REVID            0x22
+// RM3100 Registers
+#define RM3100_REG_POLL        0x00
+#define RM3100_REG_CMM         0x01
+#define RM3100_REG_CCX1        0x04
+#define RM3100_REG_CCX0        0x05
+#define RM3100_REG_CCY1        0x06
+#define RM3100_REG_CCY0        0x07
+#define RM3100_REG_CCZ1        0x08
+#define RM3100_REG_CCZ0        0x09
+#define RM3100_REG_TMRC        0x0B
+#define RM3100_REG_MX          0x24
+#define RM3100_REG_MY          0x27
+#define RM3100_REG_MZ          0x2A
+#define RM3100_REG_BIST        0x33
+#define RM3100_REG_STATUS      0x34
+#define RM3100_REG_HSHAKE      0x35
+#define RM3100_REG_REVID       0x36
 #define RM3100_MAG_I2C_ADDRESS  0x20
+
+#define CCX_DEFAULT_MSB        0x00
+#define CCX_DEFAULT_LSB        0xC8
+#define CCY_DEFAULT_MSB        CCX_DEFAULT_MSB
+#define CCY_DEFAULT_LSB        CCX_DEFAULT_LSB
+#define CCZ_DEFAULT_MSB        CCX_DEFAULT_MSB
+#define CCZ_DEFAULT_LSB        CCX_DEFAULT_LSB
 
 #define CC_DEFAULT              200 
 #define TMRC_DEFAULT            0x94 
 #define CMM_CONT_MODE           0x71 
+
+#define RM3100_REVID            0x22
 
 static bool rm3100Init(magDev_t *magDev)
 {
@@ -54,19 +72,20 @@ static bool rm3100Init(magDev_t *magDev)
     busDeviceRegister(dev);
 
     bool ack = true;
-    uint8_t cc[2] = { (CC_DEFAULT >> 8) & 0xFF, CC_DEFAULT & 0xFF };
-    
-    // Cycle Counts configuration
-    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1,     cc[0]); // CCX1
-    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1 + 1, cc[1]); // CCX0
-    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1 + 2, cc[0]); // CCY1
-    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1 + 3, cc[1]); // CCY0
-    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1 + 4, cc[0]); // CCZ1
-    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1 + 5, cc[1]); // CCZ0
 
-    // Set Data Rate & Continuous Mode
     ack = ack && busWriteRegister(dev, RM3100_REG_TMRC, TMRC_DEFAULT);
+
+    ack = ack && busWriteRegister(dev, RM3100_REG_CCX1, CCX_DEFAULT_MSB);
+    ack = ack && busWriteRegister(dev, RM3100_REG_CCX0, CCX_DEFAULT_LSB);
+    
+    ack = ack && busWriteRegister(dev, RM3100_REG_CCY1, CCY_DEFAULT_MSB);
+    ack = ack && busWriteRegister(dev, RM3100_REG_CCY0, CCY_DEFAULT_LSB);
+    
+    ack = ack && busWriteRegister(dev, RM3100_REG_CCZ1, CCZ_DEFAULT_MSB);
+    ack = ack && busWriteRegister(dev, RM3100_REG_CCZ0, CCZ_DEFAULT_LSB);
+
     ack = ack && busWriteRegister(dev, RM3100_REG_CMM, CMM_CONT_MODE);
+
 
     if (!ack) {
         return false;
@@ -78,45 +97,59 @@ static bool rm3100Init(magDev_t *magDev)
 
 static bool rm3100Read(magDev_t *magDev, int16_t *magData)
 {
-    static uint8_t buf[9]; // 3 axes * 3 bytes each
+    #pragma pack(push, 1)
+    static struct {
+        uint8_t x[3];
+        uint8_t y[3];
+        uint8_t z[3];
+    } rm_report;
+    #pragma pack(pop)
+    
     static uint8_t status = 0;
     static enum {
-        STATE_WAIT_DRDY,
-        STATE_READ,
-    } state = STATE_WAIT_DRDY;
+        STATE_TRIGGER_STATUS,
+        STATE_AWAIT_STATUS,
+        STATE_AWAIT_DATA,
+    } state = STATE_TRIGGER_STATUS;
 
     extDevice_t *dev = &magDev->dev;
 
     switch (state) {
         default:
-        case STATE_WAIT_DRDY:
-            // Check if DRDY (MSB) bit is set in the last polled status byte
-            if (status & 0x80) {
-                // Non-blocking asynchronous start of data matrix read
-                if (busReadRegisterBufferStart(dev, RM3100_REG_MX, buf, sizeof(buf))) {
-                    state = STATE_READ;
-                }
-            } else {
-                // Non-blocking asynchronous update of status register
-                busReadRegisterBufferStart(dev, RM3100_REG_STATUS, &status, sizeof(status));
+        case STATE_TRIGGER_STATUS:
+            status = 0;
+            if(busReadRegisterBufferStart(dev, RM3100_REG_STATUS, &status, 1)){
+                state = STATE_AWAIT_STATUS;
             }
-            return false; // Data is not ready yet to be dispatched to Betaflight core
+            return false;
+        case STATE_AWAIT_STATUS:
+        if (status == 0xFF) {
+                state = STATE_TRIGGER_STATUS;
+                return false;
+            }
+            if(status & 0x80){
+                if (busReadRegisterBufferStart(dev, RM3100_REG_MX, (uint8_t *)&rm_report, sizeof(rm_report))) {
+                    state = STATE_AWAIT_DATA;
+                }else{
+                    state = STATE_TRIGGER_STATUS;
+                }        
+            }else {
+                state = STATE_TRIGGER_STATUS;
+            }
+            return false;
 
-        case STATE_READ:
+        case STATE_AWAIT_DATA:
         {
-            // Reconstruct 24-bit signed values from big-endian buffer
-            int32_t xraw = (int32_t)(((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8)) >> 8;
-            int32_t yraw = (int32_t)(((uint32_t)buf[3] << 24) | ((uint32_t)buf[4] << 16) | ((uint32_t)buf[5] << 8)) >> 8;
-            int32_t zraw = (int32_t)(((uint32_t)buf[6] << 24) | ((uint32_t)buf[7] << 16) | ((uint32_t)buf[8] << 8)) >> 8;
+            int32_t xraw = (int32_t)(((uint32_t)rm_report.x[0] << 24) | ((uint32_t)rm_report.x[1] << 16) | ((uint32_t)rm_report.x[2] << 8)) >> 8;
+            int32_t yraw = (int32_t)(((uint32_t)rm_report.y[0] << 24) | ((uint32_t)rm_report.y[1] << 16) | ((uint32_t)rm_report.y[2] << 8)) >> 8;
+            int32_t zraw = (int32_t)(((uint32_t)rm_report.z[0] << 24) | ((uint32_t)rm_report.z[1] << 16) | ((uint32_t)rm_report.z[2] << 8)) >> 8;
 
-	    magData[X] = (int16_t)constrain(xraw / 10, INT16_MIN, INT16_MAX);
+            magData[X] = (int16_t)constrain(xraw / 10, INT16_MIN, INT16_MAX);
             magData[Y] = (int16_t)constrain(yraw / 10, INT16_MIN, INT16_MAX);
             magData[Z] = (int16_t)constrain(zraw / 10, INT16_MIN, INT16_MAX);
 
-            // Reset state machine configurations for next read cycle
-            state = STATE_WAIT_DRDY;
-            status = 0;
-            return true; // Successfully read fresh data
+            state = STATE_TRIGGER_STATUS;
+            return true;
         }
     }
 
@@ -132,7 +165,7 @@ bool rm3100Detect(magDev_t *magDev)
     }
 
     uint8_t revid = 0;
-    // Blocking read is perfectly acceptable during boot up/detection phase
+
     bool ack = busReadRegisterBuffer(dev, RM3100_REG_REVID, &revid, 1);
     
     if (ack && revid == RM3100_REVID) {
