@@ -404,7 +404,7 @@
 #undef USE_CRSF_ACCGYRO_TELEMETRY
 #endif
 
-#if !defined(USE_RX_EXPRESSLRS) && !defined(USE_SERIALRX_CRSF) && !defined(USE_SERIALRX_MAVLINK)
+#if !defined(USE_RX_EXPRESSLRS) && !defined(USE_SERIALRX_CRSF) && !defined(USE_SERIALRX_MAVLINK) && !defined(USE_SERIALRX_GHOST)
 #undef USE_RX_RSSI_DBM
 #endif
 
