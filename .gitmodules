@@ -8,3 +8,7 @@
 	url = https://github.com/raspberrypi/pico-sdk.git
 	branch = master
 	ignore = dirty
+
+[submodule "src/orqa-betaflight-config"]
+	path = src/orqa-betaflight-config
+	url = https://github.com/orqafpv/orqa-betaflight-config.git
