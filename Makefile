@@ -134,7 +134,7 @@ TOOLS_DIR  ?= $(ROOT_DIR)/tools
 DL_DIR     := $(ROOT)/downloads
 CONFIG_DIR ?= $(BETAFLIGHT_CONFIG)
 ifeq ($(CONFIG_DIR),)
-CONFIG_DIR := $(ROOT)/src/config
+CONFIG_DIR := $(ROOT)/src/orqa-betaflight-config
 endif
 DIRECTORIES := $(DL_DIR) $(TOOLS_DIR)
 
