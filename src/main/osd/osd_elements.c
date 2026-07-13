@@ -845,7 +845,7 @@ static void osdElementCustomMsg(osdElementParms_t *element)
 {
     int msgIndex = element->item - OSD_CUSTOM_MSG0;
     if (msgIndex < 0 || msgIndex >= OSD_CUSTOM_MSG_COUNT || pilotConfig()->message[msgIndex][0] == '\0') {
-        tfp_sprintf(element->buff, "CUSTOM_MSG%d", msgIndex + 1);
+        tfp_sprintf(element->buff, "                ");
     } else {
         strncpy(element->buff, pilotConfig()->message[msgIndex], MAX_NAME_LENGTH);
         element->buff[MAX_NAME_LENGTH] = 0;   // terminate maximum-length string
@@ -1741,6 +1741,12 @@ static void osdElementVtxChannel(osdElementParms_t *element)
     const char vtxBandLetter = vtxCommonLookupBandLetter(vtxDevice, band);
     const char *vtxChannelName = vtxCommonLookupChannelName(vtxDevice, channel);
     unsigned vtxStatus = 0;
+    
+    uint16_t power_ghst = getVtxPower();
+    VTX_BAND band_ghst = getVtxBand();
+    uint8_t channel_ghst = getVtxChan();
+    //uint16_t frequency_ghst = getVtxFreq();
+    
     uint8_t vtxPower = vtxSettingsConfig()->power;
     if (vtxDevice) {
         vtxCommonGetStatus(vtxDevice, &vtxStatus);
@@ -1762,7 +1768,26 @@ switch (element->type) {
     case OSD_ELEMENT_TYPE_2:
             tfp_sprintf(element->buff, "%s", vtxPowerLabel);
         break;
+    case OSD_ELEMENT_TYPE_3:
+        if(power_ghst > 999)
+        {
+            int power_int = power_ghst / 1000;
+            int power_frac = ((power_ghst - (power_int * 1000)) / 100);
+            if(power_frac != 0)
+                tfp_sprintf(element->buff, "%s:%d:%d.%dW",  vtx_band_names[band_ghst], channel_ghst, power_int, power_frac);
+                //tfp_sprintf(element->buff, "%d:%d.%dW",  frequency, power_int, power_frac);
+            else
+                tfp_sprintf(element->buff, "%s:%d:%dW",  vtx_band_names[band_ghst], channel_ghst, power_int);
+                //tfp_sprintf(element->buff, "%d:%dW",  frequency, power_int);
 
+        }
+        else
+        {
+            tfp_sprintf(element->buff, "%s:%d:%d",  vtx_band_names[band_ghst], channel_ghst, power_ghst);
+            //tfp_sprintf(element->buff, "%d:%d",  frequency, power);
+        }
+        break;
+        
     default:
         if (vtxStatus & VTX_STATUS_LOCKED) {
             tfp_sprintf(element->buff, "-:-:-:L");
