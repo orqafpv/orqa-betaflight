@@ -1461,6 +1461,10 @@ void gpsUpdate(timeUs_t currentTimeUs)
         // previously we would attempt a different baud rate here if gps auto-baud was enabled.  that code has been removed.
         gpsSol.numSat = 0;
         DISABLE_STATE(GPS_FIX);
+        // next 3 lines - enable gps hotplug, for now kept as a custom build until approved for main build
+        //gpsData.platformVersion = UBX_VERSION_UNDEF;
+        //gpsData.tempBaudRateIndex = gpsData.userBaudRateIndex;
+        //gpsData.ubloxUsingFlightModel = false;
         gpsSetState(GPS_STATE_DETECT_BAUD);
         break;
 
