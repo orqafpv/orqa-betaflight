@@ -128,7 +128,7 @@ uartPort_t *serialUART(uartDevice_t *uartdev, uint32_t baudRate, portMode_e mode
         // Note: APM32F4 is different from STM32F4 here
         const ioConfig_t ioCfg = IO_CONFIG(
             pushPull ? GPIO_MODE_AF_PP : GPIO_MODE_AF_OD,
-            GPIO_SPEED_FREQ_HIGH,
+            GPIO_SPEED_FREQ_LOW,
             ((const unsigned[]){GPIO_NOPULL, GPIO_PULLDOWN, GPIO_PULLUP})[pull]
         );
 #elif defined(AT32F4)
