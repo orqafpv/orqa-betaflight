@@ -211,7 +211,10 @@
 #define USE_OSD_SD
 #define USE_OSD_HD
 #endif
+
+#if defined(USE_BLACKBOX)
 #define USE_BLACKBOX
+#endif
 
 #if TARGET_FLASH_SIZE >= 1024
 

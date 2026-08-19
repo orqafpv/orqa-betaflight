@@ -204,6 +204,13 @@ static void validateAndFixConfig(void)
     for(int i = 0; i < OSD_CUSTOM_MSG_COUNT; i++){
         pilotConfigMutable()->message[i][0] = '\0';
     }
+    
+    for (int i = 0; i < SERIAL_PORT_COUNT; i++) {
+    serialPortConfig_t *portConfig = &serialConfigMutable()->portConfigs[i];
+    portConfig->functionMask &= ~FUNCTION_BLACKBOX;
+    
+    }
+    
 #if !defined(USE_QUAD_MIXER_ONLY)
     // Reset unsupported mixer mode to default.
     // This check will be gone when motor/servo mixers are loaded dynamically

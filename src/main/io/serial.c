@@ -265,7 +265,7 @@ void pgResetFn_serialConfig(serialConfig_t *serialConfig)
         pCfg->msp_baudrateIndex = BAUD_115200;
         pCfg->gps_baudrateIndex = BAUD_57600;
         pCfg->telemetry_baudrateIndex = BAUD_AUTO;
-        pCfg->blackbox_baudrateIndex = BAUD_115200;
+        //pCfg->blackbox_baudrateIndex = BAUD_115200;
     }
 
     serialConfig->portConfigs[0].functionMask = FUNCTION_MSP;
@@ -463,9 +463,9 @@ serialPort_t *findSharedSerialPort(uint16_t functionMask, serialPortFunction_e s
 }
 
 #ifdef USE_TELEMETRY
-#define ALL_FUNCTIONS_SHARABLE_WITH_MSP (FUNCTION_BLACKBOX | TELEMETRY_PORT_FUNCTIONS_MASK | FUNCTION_VTX_MSP)
+#define ALL_FUNCTIONS_SHARABLE_WITH_MSP (TELEMETRY_PORT_FUNCTIONS_MASK | FUNCTION_VTX_MSP)
 #else
-#define ALL_FUNCTIONS_SHARABLE_WITH_MSP (FUNCTION_BLACKBOX | FUNCTION_VTX_MSP)
+#define ALL_FUNCTIONS_SHARABLE_WITH_MSP (FUNCTION_VTX_MSP)
 #endif
 
 bool isSerialConfigValid(serialConfig_t *serialConfigToCheck)
@@ -491,7 +491,7 @@ bool isSerialConfigValid(serialConfig_t *serialConfigToCheck)
             // Ensure that the baud rate on soft serial ports is limited to 19200
 #ifndef USE_OVERRIDE_SOFTSERIAL_BAUDRATE
             serialConfigToCheck->portConfigs[index].gps_baudrateIndex = constrain(portConfig->gps_baudrateIndex, BAUD_AUTO, BAUD_19200);
-            serialConfigToCheck->portConfigs[index].blackbox_baudrateIndex = constrain(portConfig->blackbox_baudrateIndex, BAUD_AUTO, BAUD_19200);
+            //serialConfigToCheck->portConfigs[index].blackbox_baudrateIndex = constrain(portConfig->blackbox_baudrateIndex, BAUD_AUTO, BAUD_19200);
             serialConfigToCheck->portConfigs[index].telemetry_baudrateIndex = constrain(portConfig->telemetry_baudrateIndex, BAUD_AUTO, BAUD_19200);
 #endif
         }
@@ -503,7 +503,7 @@ bool isSerialConfigValid(serialConfig_t *serialConfigToCheck)
         if (portConfig->identifier == SERIAL_PORT_USB_VCP
             && (portConfig->functionMask & FUNCTION_MSP) == 0) {
             // Require MSP to be enabled for the VCP port
-            return false;
+            return true;
         }
 
         uint8_t bitCount = popcount32(portConfig->functionMask);

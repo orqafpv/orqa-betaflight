@@ -389,9 +389,9 @@
 #undef USE_ADC_INTERNAL
 #endif
 
-#if (defined(USE_SDCARD) || defined(USE_FLASH)) && !defined(USE_BLACKBOX)
-#define USE_BLACKBOX
-#endif
+//#if (defined(USE_SDCARD) || defined(USE_FLASH)) && !defined(USE_BLACKBOX)
+//#define USE_BLACKBOX
+//#endif
 
 #ifdef USE_FLASH
 #if !defined(USE_FLASH_TOOLS)
